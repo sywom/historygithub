@@ -245,6 +245,7 @@ void Game::processEvents()
                     }
                 }
             }
+            //строка для проверки гитхаба
             // ===========================КОМАНДЫ (УДАЛЕНИЕ) ======================
             if (event.mouseButton.button == sf::Mouse::Right)
             {
