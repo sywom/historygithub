@@ -130,9 +130,30 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleApplication1.cpp" />
+    <ClCompile Include="game\AnimationManager.cpp" />
+    <ClCompile Include="game\Game.cpp" />
+    <ClCompile Include="game\SimulationSystem.cpp" />
+    <ClCompile Include="world\ArmyManager.cpp" />
+    <ClCompile Include="world\CityManager.cpp" />
+    <ClCompile Include="world\CommandManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="fonts\DejaVu Sans.zip" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="game\AnimationManager.h" />
+    <ClInclude Include="game\Game.h" />
+    <ClInclude Include="game\SimulationSystem.h" />
+    <ClInclude Include="world\Army.h" />
+    <ClInclude Include="world\ArmyManager.h" />
+    <ClInclude Include="world\City.h" />
+    <ClInclude Include="world\CityManager.h" />
+    <ClInclude Include="world\Command.h" />
+    <ClInclude Include="world\CommandManager.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="fonts\DejaVuSans.ttf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
