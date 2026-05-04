@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 class AnimationManager
 {
@@ -29,7 +30,7 @@ public:
         std::vector<sf::Vector2f> curve; // путь
         float t;          // прогресс 0..1
         float speed;      // скорость анимации
-        bool fadeOut;     // false = появление, true = исчезновение
+        bool appearing;     // true = появление, false = исчезновение
         bool finished;
         sf::Color color;
     };
@@ -46,10 +47,15 @@ public:
     // =========================
     // UPDATE / DRAW
     // =========================
+    void delay(float seconds, std::function<void()> action);
+
     void update(float dt);
     void draw(sf::RenderWindow& window);
 
 private:
     std::vector<Effect> effects;
     std::vector<CommandEffect> commands;
+
+    float delayTimer = 0.f;
+    std::function<void()> delayedAction;
 };

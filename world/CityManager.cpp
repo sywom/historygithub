@@ -156,19 +156,10 @@ void CityManager::loadConnections(const std::string& filename)
     std::cout << "connections ok\n";
 }
 
-
-// кривая для комманд (тут, потому что строю по городам)
-std::vector<sf::Vector2f> CityManager::buildCurve(int fromCity,int toCity,float offset)
+// построить кривую, сунул сюда потому что круто, чаще всего по двум точкам работать
+std::vector<sf::Vector2f> CityManager::buildCurve(sf::Vector2f A, sf::Vector2f B, float offset)
 {
     std::vector<sf::Vector2f> points;
-
-    City* aCity = findById(fromCity);
-    City* bCity = findById(toCity);
-
-    if (!aCity || !bCity) return points;
-
-    sf::Vector2f A = aCity->position;
-    sf::Vector2f B = bCity->position;
 
     sf::Vector2f dir = B - A;
     float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
@@ -179,14 +170,13 @@ std::vector<sf::Vector2f> CityManager::buildCurve(int fromCity,int toCity,float 
     sf::Vector2f normal(-dir.y, dir.x);
 
     if (normal.y > 0) normal = -normal;
+    //  куда гнуть
+    float side = ((A.x + A.y) < (B.x + B.y)) ? 1.f : -1.f;
 
-    float side = (fromCity < toCity) ? 1.f : -1.f;
-
-    // ===================== ФОРМА  =====================
+    // ===================== ФОРМА =====================
     float curveStrength = len * offset;
 
     sf::Vector2f mid = (A + B) / 2.f;
-
     sf::Vector2f control = mid + normal * side * curveStrength;
 
     // ===================== самая кривая =====================
@@ -197,7 +187,6 @@ std::vector<sf::Vector2f> CityManager::buildCurve(int fromCity,int toCity,float 
         float t = i / (float)(segments - 1);
         float u = 1.f - t;
 
-        //ax2 + by + c = 0
         sf::Vector2f p =
             u * u * A +
             2.f * u * t * control +
@@ -210,10 +199,9 @@ std::vector<sf::Vector2f> CityManager::buildCurve(int fromCity,int toCity,float 
 }
 
 // найти точку на кривой
-sf::Vector2f getPointOnCurve(std::vector<sf::Vector2f>& curve, float t)
+sf::Vector2f CityManager::getPointOnCurve(std::vector<sf::Vector2f>& curve, float t)
 {
-    if (curve.empty())
-        return {};
+    if (curve.empty()) return {};
 
     t = std::max(0.f, std::min(1.f, t));
 

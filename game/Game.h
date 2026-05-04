@@ -88,6 +88,8 @@ private:
     sf::FloatRect endTurnButton;
 
     // время - фильм такой есть, смешной
-    bool waitingForSimulation = false;
+    bool waitingForAnimationAppear = false;
+    bool waitingForAnimationDisappear = false;
     float waitTimer = 0.f;
+    float animationTime = 0.5f;
 };

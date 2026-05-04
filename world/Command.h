@@ -5,7 +5,8 @@ enum class CommandState
     Created,
     Activated,
     InBattle,
-    InRetreat
+    InRetreat,
+    Animating
 };
 
 struct Command {

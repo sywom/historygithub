@@ -122,6 +122,8 @@ void CommandManager::retreat(Command& cmd, int units)
 
     r.offset = cmd.offset; // можно оставить тот же или пересчитать
 
+    r.battleDot = cmd.battleDot;
+
     // =====================
     // 4. ВЫЧИТАЕМ ЮНИТЫ
     // =====================

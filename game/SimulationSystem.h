@@ -13,8 +13,8 @@ public:
 
     static void mergeArmiesInCities(ArmyManager& armyMgr, CityManager& cityMgr); // работа с армиями после хода (обработка хода)
 
-    static void resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr); // бои на готовых армиях
+    static void resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr); // бои на готовых армиях
 
-    static void makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr);
+    static void makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr);
 };
 

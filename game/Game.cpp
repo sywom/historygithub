@@ -217,7 +217,7 @@ void Game::processEvents()
 
                             if (!a || !b) continue;
 
-                            auto curve = cityMgr.buildCurve(cmd.fromCity, cmd.toCity, cmd.offset);
+                            auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
                             if (isNearCurve(mouse, curve, 10.f))
                             {
                                 state = SelectingRetreat;
@@ -232,7 +232,7 @@ void Game::processEvents()
 
                             if (!a || !b) continue;
                             // EDIT
-                            auto curve = cityMgr.buildCurve(cmd.fromCity, cmd.toCity, cmd.offset);
+                            auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
                             if (isNearCurve(mouse, curve, 10.f))
                             {
                                 state = EditingCommand;
@@ -245,7 +245,6 @@ void Game::processEvents()
                     }
                 }
             }
-            //строка для проверки гитхаба
             // ===========================КОМАНДЫ (УДАЛЕНИЕ) ======================
             if (event.mouseButton.button == sf::Mouse::Right)
             {
@@ -262,7 +261,7 @@ void Game::processEvents()
 
                     if (!a || !b) continue;
                     // DELETE
-                    auto curve = cityMgr.buildCurve(cmd.fromCity, cmd.toCity, cmd.offset);
+                    auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
                     if (isNearCurve(mouse, curve, 10.f))
                     {
                         commandMgr.commands.erase(commandMgr.commands.begin() + i);
@@ -325,9 +324,9 @@ void Game::processEvents()
             sf::Vector2f mouse = window.mapPixelToCoords(mouseScreen, window.getDefaultView());
             if (endTurnButton.contains(mouse))
             {
-                SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr);    // ход наполеончика
+                SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr, animMgr);    // ход наполеончика
 
-                waitingForSimulation = true; // чтобы вообще понять что ии сделал, я 3 секунды даю на посмотреть на команды ии
+                waitingForAnimationAppear = true; // чтобы вообще понять что ии сделал, я 3 секунды даю на посмотреть на команды ии
                 waitTimer = 0.f;
 
                 // end turn перенесен в update
@@ -345,9 +344,6 @@ void Game::processEvents()
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::W)
         {
             animMgr.spawnWin({600.f, 400.f});
-
-            std::vector<sf::Vector2f> curve = cityMgr.buildCurve(10, 4, 0.3f);
-            animMgr.spawnLineAppear(curve, sf::Color::Black);
         }
     }
 }
@@ -410,18 +406,17 @@ void Game::update(float dt)
     newView.setCenter(center + (targetCenter - center) * smoothFactor);
 
     view = newView;
-    // ====================== EDN TURN =========================
-    if (waitingForSimulation)
+    // ====================== Задержки при анимациях (при появлении и удалении команд =========================
+    if (waitingForAnimationAppear)
     {
         waitTimer += dt;
 
-        if (waitTimer >= 1.f)
+        if (waitTimer >= animationTime)
         {
             SimulationSystem::endTurn(commandMgr, armyMgr, cityMgr, animMgr);
-            waitingForSimulation = false;
+            waitingForAnimationAppear = false;
         }
     }
-
 
     // ========================= АНИМАЦИИ??? ================
     animMgr.update(dt);
@@ -539,6 +534,49 @@ void Game::render()
 
     //=====================================================
     // ===================== КОМАНДЫ ======================
+
+    // ========= отрисовка стрелки при выборе точки для команды ==============
+    if (state==SelectingTarget)
+    {
+        int fromCity = armyMgr.getById(selectedArmyId)->currentCityId;
+        City* a = cityMgr.findById(fromCity);
+
+
+        auto curve = cityMgr.buildCurve(a->position, mouseWorld, 0);
+        //if (curve.size() < 2) continue;
+
+        sf::VertexArray line(sf::LineStrip, curve.size());
+
+        for (size_t i = 0; i < curve.size(); i++)
+        {
+            line[i].position = curve[i];
+            line[i].color = sf::Color::White;
+        }
+        window.draw(line);
+    }
+    //========== отрисовка стрелки при выборе отступления ================= (как будто бы очень очень запарно доставать всю информацию из индекса
+    if (state==SelectingRetreat)                                               // надо будет потом указатель запоминать это будет намного проще)
+    {                                                                           // если время будет исправлю пока так сойдет потом
+        Command cmd = commandMgr.commands[selectedCommandIndex];
+        City* a = cityMgr.findById(cmd.fromCity);
+        City* b = cityMgr.findById(cmd.toCity);
+
+        auto commandCurve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
+
+        sf::Vector2f battlePoint = cityMgr.getPointOnCurve(commandCurve, cmd.battleDot);
+
+        auto curve = cityMgr.buildCurve(battlePoint, mouseWorld, 0);
+
+        sf::VertexArray line(sf::LineStrip, curve.size());
+
+        for (size_t i = 0; i < curve.size(); i++)
+        {
+            line[i].position = curve[i];
+            line[i].color = sf::Color::Green;
+        }
+        window.draw(line);
+    }
+
     for (auto &cmd : commandMgr.commands)
     {
         sf::Color color;
@@ -550,6 +588,12 @@ void Game::render()
 
         if (cmd.owner==1) color = sf::Color::Blue;//команды врага всегда одного цвета (информация о своих командах есть только у нас - логично)
 
+        if (cmd.state == CommandState::Animating) // хз пока, вроде работает, но темка мутная
+        {
+            //std::cout << "нельзя рисовать (анимация)\n";
+            continue;
+        }
+
         City* a = cityMgr.findById(cmd.fromCity);
         City* b = cityMgr.findById(cmd.toCity);
 
@@ -557,8 +601,14 @@ void Game::render()
 
 
         // ===================== кривая команды ==================
-        auto curve = cityMgr.buildCurve(cmd.fromCity, cmd.toCity, cmd.offset);
+        auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
         if (curve.size() < 2) continue;
+
+        if (cmd.state == CommandState::InRetreat)
+        {
+            sf::Vector2f battlePoint = cityMgr.getPointOnCurve(curve, cmd.battleDot);
+            curve = cityMgr.buildCurve(battlePoint, b->position, cmd.offset);
+        }
 
         sf::VertexArray line(sf::LineStrip, curve.size());
 

@@ -3,8 +3,6 @@
 #include <unordered_map>
 #include <cstdlib> //rand
 
-#include <iostream>
-
 // самая сложная хреновина которуя в жизни писал
 void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr)
 {
@@ -13,14 +11,15 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
     // ============================================
     for (auto &cmd : commandMgr.commands)
     {
-        if (cmd.state != CommandState::Created) continue;
+        if (cmd.state == CommandState::Created || cmd.state == CommandState::Animating)
+        {
+            Army* army = armyMgr.getById(cmd.armyId);
+            if (!army) continue;
 
-        Army* army = armyMgr.getById(cmd.armyId);
-        if (!army) continue;
+            army->soldiers -= cmd.units;
 
-        army->soldiers -= cmd.units;
-
-        cmd.state = CommandState::Activated;
+            cmd.state = CommandState::Activated;
+        }
     }
 
     // =====================
@@ -180,6 +179,24 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         armyMgr.armies.push_back(newArmy);
 
         cmd.units = 0; // важно для удаления старой армии
+
+        // анимируем прибытие команды
+        City* a = cityMgr.findById(cmd.fromCity);
+        City* b = cityMgr.findById(cmd.toCity);
+
+        std::vector<sf::Vector2f> curve = cityMgr.buildCurve(b->position, a->position, -cmd.offset);
+
+        sf::Color color;
+        if (cmd.owner==1) color = sf::Color::Blue;
+        if (cmd.owner==0) color = sf::Color::Yellow;
+
+        animMgr.spawnLineDisappear(curve, color);
+
+        animMgr.delay(0.5f, [&]()
+        {
+            SimulationSystem::mergeArmiesInCities(armyMgr, cityMgr);
+            SimulationSystem::resolveBattles(armyMgr, cityMgr, animMgr);
+        });
     }
 
     // =====================
@@ -195,17 +212,16 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         commandMgr.commands.end()
     );
 
+    // эти пункты чуууть выше
     // =====================
     //  СЛИЯНИЕ АРМИЙ
     // =====================
     // когда армии пришли на новые места их всех нужно слить в одну, чтобы на точке осталась одна
-    SimulationSystem::mergeArmiesInCities(armyMgr, cityMgr);
 
     // =====================
     //  БОИ В ГОРОДАХ
     // =====================
-    // бим бим бам бам
-    SimulationSystem::resolveBattles(armyMgr, cityMgr);
+    // бим бим бам бам (но нужно подождать пока анимация отработает)
 
 }
 
@@ -293,7 +309,7 @@ void SimulationSystem::mergeArmiesInCities(ArmyManager& armyMgr, CityManager& ci
 
 // ===================== RESOLVE BATTLES =====================
 // когда собрали все армии в одну начинаем выяснять отношения
-void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr)
+void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr)
 {
     for (auto &city : cityMgr.cities)
     {
@@ -373,9 +389,9 @@ void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr
         }
         if (remainingA > 0 && remainingB > 0) city.owner = -1; // бой продолжается
         // победа какой то из сторон
-        else if (remainingA > 0 && remainingB <= 0) city.owner = ownerA;
+        else if (remainingA > 0 && remainingB <= 0) {city.owner = ownerA; animMgr.spawnLose(city.position + sf::Vector2f(0,30));}
 
-        else if (remainingB > 0 && remainingA <= 0) city.owner = ownerB;
+            else if (remainingB > 0 && remainingA <= 0)  {city.owner = ownerB; animMgr.spawnWin(city.position + sf::Vector2f(0,30));}
     }
 
     // =====================
@@ -397,9 +413,7 @@ void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr
 
 
 // пу пу пу
-#include <cstdlib> // rand()
-
-void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr)
+void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr)
 {
     for (auto &army : armyMgr.armies)
     {
@@ -466,10 +480,24 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
             bestTarget,
             sendUnits,
             turns,
-            turns
+            turns,
+            0,
+            0,
+            CommandState::Animating
         });
-
         commandMgr.updateOffsets(fromCity, bestTarget);
+
+        // анимируем
+        Command cmd = commandMgr.commands.back();//берем только что созданную команду и достаем нужные данные (по хорошему они есть выше но у меня есть готовый кусок кода)
+
+        //cmd.state = CommandState::Animating;
+
+        City* a = cityMgr.findById(cmd.fromCity);
+        City* b = cityMgr.findById(cmd.toCity);
+
+        std::vector<sf::Vector2f> curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
+
+        animMgr.spawnLineAppear(curve, sf::Color::Blue);
     }
 }
 

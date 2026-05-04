@@ -1,5 +1,5 @@
 #include "AnimationManager.h"
-#include <iostream>
+
 
 // =======================================================
 // СПАВН WIN / LOSE
@@ -45,13 +45,34 @@ void AnimationManager::spawnLineAppear(const std::vector<sf::Vector2f>& curve, s
     CommandEffect e;
     e.curve = curve;
     e.t = 0.f;
-    e.speed = 3.f;
+    e.speed = 2.f;
     e.finished = false;
     e.color = color;
 
-    std::cout << "запрос на анимацию создан\n";
+    e.appearing = true;
 
     commands.push_back(e);
+}
+
+void AnimationManager::spawnLineDisappear(const std::vector<sf::Vector2f>& curve, sf::Color color)
+{
+    CommandEffect e;
+    e.curve = curve;
+    e.t = 1.f;          // начинаем с полной линии
+    e.speed = 2.f;
+    e.finished = false;
+    e.color = color;
+
+    e.appearing = false;
+
+    commands.push_back(e);
+}
+
+//===================== небольщая пауза для отрисовки анимаций ========= (помог иишка)
+void AnimationManager::delay(float seconds, std::function<void()> action)
+{
+    delayTimer = seconds;
+    delayedAction = action;
 }
 
 // =======================================================
@@ -60,6 +81,17 @@ void AnimationManager::spawnLineAppear(const std::vector<sf::Vector2f>& curve, s
 
 void AnimationManager::update(float dt)
 {
+    if (delayTimer > 0.f)
+    {
+        delayTimer -= dt;
+
+        if (delayTimer <= 0.f && delayedAction)
+        {
+            delayedAction();
+            delayedAction = nullptr;
+        }
+    }
+
     // =========================
     // WIN / LOSE эффекты
     // =========================
@@ -100,8 +132,26 @@ void AnimationManager::update(float dt)
     // =========================
     for (auto &c : commands)
     {
-        c.t += dt * c.speed;
-        if (c.t > 1.f) c.t = 1.f;
+
+        if (c.appearing)
+        {
+            c.t += dt * c.speed;
+            if (c.t > 1.f)
+            {
+                c.t = 1.f;
+                c.finished = true;
+            }
+        }
+        else
+        {
+            c.t -= dt * c.speed;
+            if (c.t <= 0.f)
+            {
+                c.t = 0.f;
+                c.finished = true;
+            }
+        }
+
     }
     commands.erase(
         std::remove_if(commands.begin(), commands.end(),

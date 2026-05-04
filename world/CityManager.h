@@ -12,8 +12,8 @@ public:
     bool canMoveBetweenCities(int fromId, int toId); // могу ли сделать команду туда?
     int distance(int a, int b); // расстояние между городами
 
-    std::vector<sf::Vector2f> buildCurve(int fromCity,int toCity,float offset); // построить кривую между городами
-    sf::Vector2f getPointOnCurve(std::vector<sf::Vector2f>& curve, float t);    // найти точку
+    std::vector<sf::Vector2f> buildCurve(sf::Vector2f A, sf::Vector2f B, float offset); // построить кривую между городами
+    sf::Vector2f getPointOnCurve(std::vector<sf::Vector2f>& curve, float t);   // найти точку
 
     // загрузка всех значений
     void loadFromFile(const std::string& filename, sf::Font& font);
