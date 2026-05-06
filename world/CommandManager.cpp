@@ -132,8 +132,8 @@ void CommandManager::retreat(Command& cmd, int units)
     // =====================
     // 5. ДОБАВЛЯЕМ
     // =====================
-    updateOffsets(r.fromCity, r.toCity);
     commands.push_back(r);
+    //updateOffsets(r.fromCity, r.toCity);
     // после создания нужно проверить наслоения
 }
 

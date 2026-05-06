@@ -23,7 +23,7 @@ int CityManager::distance(int a, int b)
     float dx = A->position.x - B->position.x;
     float dy = A->position.y - B->position.y;
 
-    return std::max(1, (int)(sqrt(dx*dx + dy*dy) / 100.f));
+    return std::max(1, (int)(sqrt(dx*dx + dy*dy) / 150.f));
 }
 
 // получить указатель на город под мышкой
@@ -51,9 +51,9 @@ bool CityManager::isNeighbor(int a, int b)
 
     return false;
 }
-
+// 0 - игрок, 1 - ии
 // является ли город крутым соседом (нельзя штурмовать не твои города, если стоишь не на своем)
-bool CityManager::canMoveBetweenCities(int fromId, int toId)
+bool CityManager::canMoveBetweenCities(int fromId, int toId, int owner)
 {
     City* from = findById(fromId);
     City* to   = findById(toId);
@@ -63,11 +63,11 @@ bool CityManager::canMoveBetweenCities(int fromId, int toId)
     //  должны быть соседями
     if (!isNeighbor(fromId, toId)) return false;
 
-    // если цель НЕ твоя (щас красным)
-    if (to->owner != 0)
+    // если цель НЕ твоя
+    if (owner != to->owner)
     {
-        // можно идти только из зелёного города
-        if (from->owner != 0)
+        // можно идти только из твоего города
+        if (from->owner != owner)
             return false;
     }
 

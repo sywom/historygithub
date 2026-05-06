@@ -164,15 +164,25 @@ void Game::processEvents()
                     int fromCity = armyMgr.getById(selectedArmyId)->currentCityId;
                     int toCity = city.id;
                     // движение только по правильным соседям, точка from!=to, максимальное кол-во команд = 3
-                    if (cityMgr.canMoveBetweenCities(fromCity, toCity) &&
+                    if (cityMgr.canMoveBetweenCities(fromCity, toCity, 0) &&    // 0 - игрок
                         armyMgr.getById(selectedArmyId)->currentCityId != city.id &&
                         commandMgr.getPendingCount() < maxCommands)
                         {
                             if (!commandMgr.isDuplicateInTurn(selectedArmyId, fromCity, toCity)) // делать ли наслоение
                             {
                                 int turnsForCommnad = cityMgr.distance(fromCity, toCity);
-                                // команда (owner, army, from, to, units, remaning turns, all turns, active, offset, in battle, battle turn)
-                                commandMgr.commands.push_back({armyMgr.getById(selectedArmyId)->owner, selectedArmyId, fromCity, toCity, 0,turnsForCommnad, turnsForCommnad});
+
+                                Command newCommand;
+                                newCommand.owner = armyMgr.getById(selectedArmyId)->owner;
+                                newCommand.armyId = selectedArmyId;
+                                newCommand.fromCity = fromCity;
+                                newCommand.toCity = toCity;
+                                newCommand.units = 0;
+                                newCommand.remainingTurns = turnsForCommnad;
+                                newCommand.totalTurns = turnsForCommnad;
+                                newCommand.battleDot = 1;
+
+                                commandMgr.commands.push_back(newCommand);
                                 //пересмотр offset для кривой
                                 commandMgr.updateOffsets(fromCity, toCity);
                                 selectedArmyId = -1;
@@ -454,7 +464,7 @@ void Game::render()
                 int fromCity = army->currentCityId;
 
                 if (c.id == fromCity) c.marker.setFillColor(sf::Color::Blue);
-                else if (cityMgr.canMoveBetweenCities(fromCity, c.id)) c.marker.setFillColor(sf::Color::Cyan);
+                else if (cityMgr.canMoveBetweenCities(fromCity, c.id, 0)) c.marker.setFillColor(sf::Color::Cyan);
             }
         }
 
@@ -475,7 +485,7 @@ void Game::render()
                 enemyUnits += army->soldiers;
         }
 
-        // справа — игрок
+        // справа — игрок 0
         if (playerUnits > 0)
         {
             sf::Text text;
@@ -489,7 +499,7 @@ void Game::render()
             window.draw(text);
         }
 
-        // слева — враг
+        // слева — враг 1
         if (enemyUnits > 0)
         {
             sf::Text text;
@@ -561,11 +571,10 @@ void Game::render()
         City* a = cityMgr.findById(cmd.fromCity);
         City* b = cityMgr.findById(cmd.toCity);
 
-        auto commandCurve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
+        auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
 
-        sf::Vector2f battlePoint = cityMgr.getPointOnCurve(commandCurve, cmd.battleDot);
-
-        auto curve = cityMgr.buildCurve(battlePoint, mouseWorld, 0);
+        sf::Vector2f battlePoint = cityMgr.getPointOnCurve(curve, cmd.battleDot);
+        curve = cityMgr.buildCurve(battlePoint, mouseWorld, 0);
 
         sf::VertexArray line(sf::LineStrip, curve.size());
 
@@ -604,25 +613,43 @@ void Game::render()
         auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
         if (curve.size() < 2) continue;
 
-        if (cmd.state == CommandState::InRetreat)
+        sf::VertexArray line(sf::LineStrip);
+
+        // --- индексы ---
+        size_t battleIndex = std::clamp((size_t)(curve.size() * cmd.battleDot),(size_t)0,curve.size() - 1);
+
+        float moveProgress = 1.0f - (float)cmd.remainingTurns / cmd.totalTurns;
+        size_t progressIndex = std::clamp((size_t)(curve.size() * moveProgress),(size_t)0,curve.size() - 1);
+
+        // =====================
+        // РЕНДЕР
+        // =====================
+        if (cmd.state == CommandState::InRetreat)   // я хз может вообще выпилю эту механнику она мне не нравится прям.
         {
-            sf::Vector2f battlePoint = cityMgr.getPointOnCurve(curve, cmd.battleDot);
-            curve = cityMgr.buildCurve(battlePoint, b->position, cmd.offset);
+            sf::Vector2f battlePos = cityMgr.getPointOnCurve(curve, cmd.battleDot);
+            auto retreatCurve = cityMgr.buildCurve(battlePos, b->position, 0);
+
+            for (size_t i = 0; i < retreatCurve.size(); i++) line.append(sf::Vertex(retreatCurve[i], color));
+        }
+        else if (cmd.state == CommandState::InBattle)
+        {
+            for (size_t i = 0; i <= battleIndex; i++) line.append(sf::Vertex(curve[i], color));
+        }
+        else if (cmd.state == CommandState::Created)
+        {
+            for (size_t i = 0; i < curve.size(); i++) line.append(sf::Vertex(curve[i], color));
+        }
+        else if (cmd.state == CommandState::Activated)
+        {
+            for (size_t i = 0; i < curve.size(); i++) line.append(sf::Vertex(curve[i], color));
         }
 
-        sf::VertexArray line(sf::LineStrip, curve.size());
-
-        for (size_t i = 0; i < curve.size(); i++)
-        {
-            line[i].position = curve[i];
-            line[i].color = color;
-        }
         window.draw(line);
 
 
         // ================ стрелка на конце команды ===========
-        sf::Vector2f p2 = curve.back();
-        sf::Vector2f p1 = curve[curve.size() - 2];
+        sf::Vector2f p2 = curve[progressIndex];
+        sf::Vector2f p1 = curve[progressIndex-2];
 
         sf::Vector2f dir = p2 - p1;
         float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
@@ -667,7 +694,10 @@ void Game::render()
         unitsText.setString(label);
         unitsText.setPosition(textPos + sf::Vector2f(5.f, -5.f));
         window.draw(unitsText);
+
+
     }
+
 
     // ===================== АНИМАЦИИ??? ============================
     animMgr.draw(window);

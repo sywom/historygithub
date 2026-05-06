@@ -9,7 +9,7 @@ public:
     City* findById(int id); // найти по id
     City* getHovered(sf::Vector2f mouse); // найти под мышкой
     bool isNeighbor(int a, int b); // сосед ли?
-    bool canMoveBetweenCities(int fromId, int toId); // могу ли сделать команду туда?
+    bool canMoveBetweenCities(int fromId, int toId, int owner); // могу ли сделать команду туда?
     int distance(int a, int b); // расстояние между городами
 
     std::vector<sf::Vector2f> buildCurve(sf::Vector2f A, sf::Vector2f B, float offset); // построить кривую между городами

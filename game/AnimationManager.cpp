@@ -68,6 +68,28 @@ void AnimationManager::spawnLineDisappear(const std::vector<sf::Vector2f>& curve
     commands.push_back(e);
 }
 
+//============================
+// spawn number
+//============================
+void AnimationManager::spawnNumber(sf::Vector2f pos, int value, float xOffset)
+{
+    NumberEffect e;
+    e.pos = pos;
+    e.value = value;
+
+    e.timer = 0.f;
+    e.duration = 0.8f;
+
+    e.xOffset = xOffset;
+    e.yOffset = 0.f;
+    e.alpha = 255.f;
+
+    e.finished = false;
+
+    numbers.push_back(e);
+}
+
+
 //===================== небольщая пауза для отрисовки анимаций ========= (помог иишка)
 void AnimationManager::delay(float seconds, std::function<void()> action)
 {
@@ -81,6 +103,7 @@ void AnimationManager::delay(float seconds, std::function<void()> action)
 
 void AnimationManager::update(float dt)
 {
+    // delay
     if (delayTimer > 0.f)
     {
         delayTimer -= dt;
@@ -161,6 +184,37 @@ void AnimationManager::update(float dt)
             }),
         commands.end()
     );
+
+    //=======================================
+    //  числа
+    //=======================================
+    for (auto &n : numbers)
+    {
+        n.timer += dt;
+
+        float t = n.timer / n.duration;
+
+        if (t >= 1.f)
+        {
+            n.finished = true;
+            continue;
+        }
+
+        // поднимается вверх
+        n.yOffset = -30.f * t;
+
+        // плавное исчезновение
+        n.alpha = 255.f * (1.f - t);
+    }
+
+    numbers.erase(
+        std::remove_if(numbers.begin(), numbers.end(),
+            [](const NumberEffect& n)
+            {
+                return n.finished;
+            }),
+        numbers.end()
+    );
 }
 
 // =======================================================
@@ -213,4 +267,29 @@ void AnimationManager::draw(sf::RenderWindow& window)
 
         window.draw(rect);
     }
+
+    //===============================
+    // numbers
+    //================================
+    for (auto &n : numbers)
+    {
+        sf::Font font;
+        font.loadFromFile("fonts/DejaVuSans.ttf");
+
+        sf::Text text;
+        text.setFont(font);
+        text.setCharacterSize(20);
+
+        text.setString("-" + std::to_string(n.value));
+
+        text.setPosition(n.pos + sf::Vector2f(n.xOffset, n.yOffset));
+
+        sf::Color c = sf::Color::Black;
+        c.a = (sf::Uint8)n.alpha;
+
+        text.setFillColor(c);
+
+        window.draw(text);
+    }
+
 }

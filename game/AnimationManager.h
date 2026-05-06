@@ -36,6 +36,24 @@ public:
     };
 
     // =========================
+    //  вычитание из числа
+    //==========================
+    struct NumberEffect
+    {
+        sf::Vector2f pos;
+        int value;
+
+        float timer;
+        float duration;
+
+        float xOffset;
+        float yOffset;
+        float alpha;
+
+        bool finished;
+    };
+
+    // =========================
     // SPAWN EFFECTS
     // =========================
     void spawnWin(sf::Vector2f pos);
@@ -43,6 +61,8 @@ public:
 
     void spawnLineAppear(const std::vector<sf::Vector2f>& curve, sf::Color color);
     void spawnLineDisappear(const std::vector<sf::Vector2f>& curve, sf::Color color);
+
+    void spawnNumber(sf::Vector2f pos, int value, float xOffset);
 
     // =========================
     // UPDATE / DRAW
@@ -55,6 +75,7 @@ public:
 private:
     std::vector<Effect> effects;
     std::vector<CommandEffect> commands;
+    std::vector<NumberEffect> numbers;
 
     float delayTimer = 0.f;
     std::function<void()> delayedAction;
