@@ -43,7 +43,7 @@ void Game::run()
 
         processEvents();
         update(dt);
-        render();
+        render(dt);
     }
 }
 
@@ -58,7 +58,7 @@ void Game::init()
     window.setFramerateLimit(76);
 
 
-    if (!backgroundImage.loadFromFile("images/test1.png"))
+    if (!backgroundImage.loadFromFile("images/ gamemapV1.png"))
     {
             std::cout << "Failed to load map\n";
     }
@@ -375,7 +375,7 @@ void Game::update(float dt)
         float dy = mouseWorldPos.y - city.position.y;
 
         float distSq = dx * dx + dy * dy;
-        float radius = city.marker.getRadius();
+        float radius = 20.f;
 
         if (distSq < radius * radius)
         {
@@ -437,7 +437,7 @@ void Game::update(float dt)
     // ==================================================
     // ===================== RENDER =====================
     // ==================================================
-void Game::render()
+void Game::render(float dt)
 {
     //====================================================
     // ================= ВСЕ ЧТО В МИРЕ ==================
@@ -452,10 +452,11 @@ void Game::render()
     {
         // ===================== цвет =====================
         if (c.owner == 0)
-            c.marker.setFillColor(sf::Color::Green);
+            cityMgr.setTexture(c.id, 0);
         else if (c.owner == 1)
-            c.marker.setFillColor(sf::Color::Red);
-        else c.marker.setFillColor(sf::Color::Yellow);
+            cityMgr.setTexture(c.id, 1);
+        else
+            cityMgr.setTexture(c.id, 2);
 
         // ======= подсветка городов при создании команды ======
         if (selectedArmyId != -1)
@@ -466,8 +467,8 @@ void Game::render()
             {
                 int fromCity = army->currentCityId;
 
-                if (c.id == fromCity) c.marker.setFillColor(sf::Color::Blue);
-                else if (cityMgr.canMoveBetweenCities(fromCity, c.id, 0)) c.marker.setFillColor(sf::Color::Cyan);
+                if (c.id == fromCity) cityMgr.setTexture(c.id, 3);
+                else if (cityMgr.canMoveBetweenCities(fromCity, c.id, 0)) cityMgr.setTexture(c.id, 4);
             }
         }
 
@@ -805,6 +806,20 @@ void Game::render()
     text.setString("End Turn");
     text.setPosition(920, 30);
     window.draw(text);
+
+
+    // ======================= FPS ================================
+    /*
+    sf::Text fpsText;
+    fpsText.setFont(font);
+    fpsText.setCharacterSize(16);
+    text.setPosition(20, 20);
+
+    fpsText.setString("fps: " + std::to_string((int)1/dt));
+
+    window.draw(fpsText);
+    */
+
 
     window.display();
 }

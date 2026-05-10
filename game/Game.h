@@ -72,7 +72,7 @@ private:
     // ===== SYSTEM =====
     void processEvents();
     void update(float dt);
-    void render();
+    void render(float dt);
     //
     int maxCommands = 3;
     // потом мооожет быть есои не лень

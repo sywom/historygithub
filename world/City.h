@@ -11,7 +11,7 @@ struct City {
     std::string name;
     sf::Text label;
     sf::Vector2f position;
-    sf::CircleShape marker;
+    sf::Sprite marker;
 
     bool isSelected = false;
 };

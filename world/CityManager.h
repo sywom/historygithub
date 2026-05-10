@@ -16,6 +16,7 @@ public:
     sf::Vector2f getPointOnCurve(std::vector<sf::Vector2f>& curve, float t);   // найти точку
 
     // загрузка всех значений
+    void setTexture(int cityId, int state);
     void loadFromFile(const std::string& filename, sf::Font& font);
     void loadConnections(const std::string& filename);
 };

@@ -9,13 +9,14 @@
 // самая сложная хреновина которуя в жизни писал
 void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount)
 {
-    if (turnCount > 8)
+    if (turnCount > 15)
     {
         // каждый ход армия наполеона потихоньку сдает
         for (auto &army : armyMgr.armies)
         {
 
             if (army.owner == 1) army.morale *= 0.98f;
+            if (army.owner == 0) army.morale *= 1.02f;
         }
     }
 

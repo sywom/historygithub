@@ -37,7 +37,7 @@ City* CityManager::getHovered(sf::Vector2f mouse)
         float dx = mouse.x - c.position.x;
         float dy = mouse.y - c.position.y;
 
-        if (dx*dx + dy*dy < c.marker.getRadius()*c.marker.getRadius())
+        if (dx*dx + dy*dy <9*9)
             return &c;
     }
     return nullptr;
@@ -76,19 +76,110 @@ bool CityManager::canMoveBetweenCities(int fromId, int toId, int owner)
 
     return true;
 }
+// =================== работа с файлами ==========================
+
+// =======================================================
+// TEXTURES
+// =======================================================
+
+sf::Texture ourCityTexture;
+sf::Texture franceCityTexture;
+sf::Texture ciegeCityTexture;
+sf::Texture selectedCityTexture;
+sf::Texture sosedCityTexture;
+
+void CityManager::setTexture(int cityId, int state)
+{
+    for (auto& city : cities)
+    {
+        if (city.id == cityId)
+        {
+            // =========================
+            // CHOOSE TEXTURE
+            // =========================
+
+            switch(state)
+            {
+                case 0:
+                    city.marker.setTexture(ourCityTexture);
+                    break;
+
+                case 1:
+                    city.marker.setTexture(franceCityTexture);
+                    break;
+
+                case 2:
+                    city.marker.setTexture(ciegeCityTexture);
+                    break;
+
+                case 3:
+                    city.marker.setTexture(selectedCityTexture);
+                    break;
+
+                case 4:
+                    city.marker.setTexture(sosedCityTexture);
+                    break;
+            }
+
+            // =========================
+            // GET CURRENT TEXTURE
+            // =========================
+
+            const sf::Texture* tex =city.marker.getTexture();
+            if (!tex) return;
+
+            // =========================
+            // RESET SCALE (ВАЖНО)
+            // =========================
+            city.marker.setScale(1.f, 1.f);
+
+            // =========================
+            // CENTER
+            // =========================
+            city.marker.setOrigin(
+                tex->getSize().x * 0.5f,
+                tex->getSize().y * 0.5f
+            );
+
+            // =========================
+            // SIZE 18x18
+            // =========================
+            sf::Vector2f targetSize(40.f, 40.f);
+
+            city.marker.setScale(
+                targetSize.x / tex->getSize().x,
+                targetSize.y / tex->getSize().y
+            );
+
+            return;
+        }
+    }
+}
+
+
+
 
 // загрузка городов
 void CityManager::loadFromFile(const std::string& filename, sf::Font& font)
 {
+    // =========================
+    // LOAD TEXTURES
+    // =========================
+
+    ourCityTexture.loadFromFile("images/dots/ourDot.png");
+    franceCityTexture.loadFromFile("images/dots/franceDot.png");
+    ciegeCityTexture.loadFromFile("images/dots/ciegeDot.png");
+    selectedCityTexture.loadFromFile("images/dots/selectedDot.png");
+    sosedCityTexture.loadFromFile("images/dots/sosedDot.png");
+
     std::ifstream file(filename);
     std::string line;
 
     if (!file.is_open())
     {
-            std::cout << "Failed to open cities file\n";
-            return;
+        std::cout << "Failed to open cities file\n";
+        return;
     }
-
 
     while (std::getline(file, line))
     {
@@ -103,26 +194,50 @@ void CityManager::loadFromFile(const std::string& filename, sf::Font& font)
         std::getline(ss, ownerStr, ';');
 
         City c;
+
         c.id = std::stoi(idStr);
         c.name = name;
         c.position = {std::stof(xStr), std::stof(yStr)};
         c.owner = std::stoi(ownerStr);
 
-        c.marker = sf::CircleShape(20.f);
-        c.marker.setOrigin(20,20);
+        // =========================
+        // POSITION
+        // =========================
+
         c.marker.setPosition(c.position);
 
-        c.label.setFont(font);
-        c.label.setCharacterSize(18);
-        c.label.setString(name);
-        c.label.setPosition(c.position.x, c.position.y - 25);
-        c.label.setString(sf::String::fromUtf8(c.name.begin(), c.name.end()));
+        // =========================
+        // DEFAULT TEXTURE
+        // =========================
 
         cities.push_back(c);
-    }
-    std::cout << "cities ok\n";
 
+        setTexture(c.id, 0);
+
+        // =========================
+        // TEXT
+        // =========================
+
+        cities.back().label.setFont(font);
+
+        cities.back().label.setCharacterSize(18);
+
+        cities.back().label.setString(
+            sf::String::fromUtf8(
+                c.name.begin(),
+                c.name.end()
+            )
+        );
+
+        cities.back().label.setPosition(
+            c.position.x,
+            c.position.y - 25
+        );
+    }
+
+    std::cout << "cities ok\n";
 }
+
 // загрузкза информации о сосеоях
 void CityManager::loadConnections(const std::string& filename)
 {
