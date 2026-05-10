@@ -24,4 +24,6 @@ struct Command {
     float battleDot = 0;
 
     CommandState state = CommandState::Created;
+
+    float morale;
 };

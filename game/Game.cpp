@@ -53,7 +53,8 @@ void Game::run()
 void Game::init()
 {
     // подгрузка файлов
-    window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
+    //window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
+    window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
     window.setFramerateLimit(76);
 
 
@@ -150,7 +151,7 @@ void Game::processEvents()
                 {
                     for (auto &army : armyMgr.armies)
                     {
-                        if (army.currentCityId == city.id) // && army.owner == 0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        if (army.currentCityId == city.id && army.owner == 0)  //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                         {
                             selectedArmyId = army.id;
                             state = SelectingTarget;
@@ -181,6 +182,7 @@ void Game::processEvents()
                                 newCommand.remainingTurns = turnsForCommnad;
                                 newCommand.totalTurns = turnsForCommnad;
                                 newCommand.battleDot = 1;
+                                newCommand.morale = armyMgr.getById(selectedArmyId)->morale;
 
                                 commandMgr.commands.push_back(newCommand);
                                 //пересмотр offset для кривой
@@ -198,7 +200,7 @@ void Game::processEvents()
                     if (city.id == cmd.fromCity)
                     {
                         //cmd.state = CommandState::InRetreat;
-                        commandMgr.retreat(cmd, cmd.units/4);// вся команда отсупает
+                        commandMgr.retreat(cmd, cmd.units);// вся команда отсупает
                     }
                     state = Idle;
                 }
@@ -220,7 +222,7 @@ void Game::processEvents()
                     {
                         auto &cmd = commandMgr.commands[i];
 
-                        if (cmd.state == CommandState::InBattle) // редактируем команду (!оступления!)
+                        if ((cmd.state == CommandState::InBattle || cmd.state == CommandState::Activated)  && cmd.owner == 0) // отсутпление (отмена)
                         {
                             City* a = cityMgr.findById(cmd.fromCity);
                             City* b = cityMgr.findById(cmd.toCity);
@@ -334,6 +336,7 @@ void Game::processEvents()
             sf::Vector2f mouse = window.mapPixelToCoords(mouseScreen, window.getDefaultView());
             if (endTurnButton.contains(mouse))
             {
+                // AI
                 SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr, animMgr);    // ход наполеончика
 
                 waitingForAnimationAppear = true; // чтобы вообще понять что ии сделал, я 3 секунды даю на посмотреть на команды ии
@@ -423,7 +426,7 @@ void Game::update(float dt)
 
         if (waitTimer >= animationTime)
         {
-            SimulationSystem::endTurn(commandMgr, armyMgr, cityMgr, animMgr);
+            SimulationSystem::endTurn(commandMgr, armyMgr, cityMgr, animMgr, Game::turn++);
             waitingForAnimationAppear = false;
         }
     }
@@ -477,12 +480,21 @@ void Game::render()
         int playerUnits = 0;
         int enemyUnits = 0;
 
+        float playerMorale = 0;
+        float enemyMorale = 0;
+
         for (auto *army : armies)
         {
             if (army->owner == 0)
+            {
                 playerUnits += army->soldiers;
+                playerMorale = army->morale;
+            }
             else
+            {
                 enemyUnits += army->soldiers;
+                enemyMorale = army->morale;
+            }
         }
 
         // справа — игрок 0
@@ -497,6 +509,16 @@ void Game::render()
             text.setPosition(c.position.x + 25, c.position.y - 10);
 
             window.draw(text);
+
+            sf::Text morale;
+            morale.setFont(font);
+            morale.setCharacterSize(20);
+            morale.setFillColor(sf::Color::Black);
+
+            morale.setString(std::to_string(playerMorale));
+            morale.setPosition(c.position.x + 25, c.position.y - 25);
+
+            window.draw(morale);
         }
 
         // слева — враг 1
@@ -511,6 +533,17 @@ void Game::render()
             text.setPosition(c.position.x - 100, c.position.y - 10);
 
             window.draw(text);
+
+
+            sf::Text morale;
+            morale.setFont(font);
+            morale.setCharacterSize(20);
+            morale.setFillColor(sf::Color::Black);
+
+            morale.setString(std::to_string(enemyMorale));
+            morale.setPosition(c.position.x - 100, c.position.y - 25);
+
+            window.draw(morale);
         }
 
         //================= подсвтетка связей между городами ===============
@@ -626,10 +659,10 @@ void Game::render()
         // =====================
         if (cmd.state == CommandState::InRetreat)   // я хз может вообще выпилю эту механнику она мне не нравится прям.
         {
-            sf::Vector2f battlePos = cityMgr.getPointOnCurve(curve, cmd.battleDot);
-            auto retreatCurve = cityMgr.buildCurve(battlePos, b->position, 0);
+            sf::Vector2f beginPos = cityMgr.getPointOnCurve(curve, cmd.battleDot);
+             curve = cityMgr.buildCurve(beginPos, b->position, cmd.offset);
 
-            for (size_t i = 0; i < retreatCurve.size(); i++) line.append(sf::Vertex(retreatCurve[i], color));
+            for (size_t i = 0; i < curve.size(); i++) line.append(sf::Vertex(curve[i], color));
         }
         else if (cmd.state == CommandState::InBattle)
         {
@@ -648,8 +681,17 @@ void Game::render()
 
 
         // ================ стрелка на конце команды ===========
-        sf::Vector2f p2 = curve[progressIndex];
-        sf::Vector2f p1 = curve[progressIndex-2];
+        sf::Vector2f p1,p2;
+        if (cmd.state == CommandState::InBattle)
+        {
+            p2 = curve[battleIndex];
+            p1 = curve[battleIndex-2];
+        }
+        else
+        {
+            p2 = curve[progressIndex];
+            p1 = curve[progressIndex-2];
+        }
 
         sf::Vector2f dir = p2 - p1;
         float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
@@ -673,7 +715,16 @@ void Game::render()
         }
 
         // ============== текст юнитов на команде ============
-        sf::Vector2f textPos = curve[curve.size() / 2];
+
+        sf::Vector2f textPos;
+        if (cmd.state == CommandState::InBattle)
+        {
+            textPos = curve[battleIndex];
+        }
+        else
+        {
+            textPos = curve[progressIndex];
+        }
 
         sf::Text unitsText;
         unitsText.setFont(font);
@@ -683,17 +734,12 @@ void Game::render()
         // ========== текст прогресса ходов на команде
         int progress = cmd.totalTurns - cmd.remainingTurns;
 
-        std::string label =
-            std::to_string(cmd.units) +
-            " (" +
-            std::to_string(progress) +
-            "/" +
-            std::to_string(cmd.totalTurns) +
-            ")";
+        std::string label = std::to_string(cmd.units) + " (" + std::to_string(progress) + "/" + std::to_string(cmd.totalTurns) + ") m: " + std::to_string(cmd.morale);
 
         unitsText.setString(label);
         unitsText.setPosition(textPos + sf::Vector2f(5.f, -5.f));
         window.draw(unitsText);
+
 
 
     }

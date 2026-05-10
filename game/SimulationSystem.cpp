@@ -7,8 +7,18 @@
 #include <iostream>
 
 // самая сложная хреновина которуя в жизни писал
-void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr)
+void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount)
 {
+    if (turnCount > 8)
+    {
+        // каждый ход армия наполеона потихоньку сдает
+        for (auto &army : armyMgr.armies)
+        {
+
+            if (army.owner == 1) army.morale *= 0.98f;
+        }
+    }
+
     // ============================================
     // СПИСАНИЕ ЮНИТОВ С ТОЧКИ И АКТИВАЦИЯ СОЗДАННЫХ КОМАНД
     // ============================================
@@ -37,15 +47,19 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
     }
 
 
+   // =====================
+    // ФРОНТЫ
+    // =====================
 
-    // =====================
-    // ГРУППИРОВКА В ФРОНТЫ (A↔B)
-    // =====================
     struct Front
     {
         int a;
         int b;
+
         std::vector<Command*> cmds;
+
+        bool activeBattle = false;
+        float battleDot = 0.5f;
     };
 
     std::vector<Front> fronts;
@@ -54,62 +68,162 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
     {
         for (auto &f : fronts)
         {
-            if ((f.a == a && f.b == b) || (f.a == b && f.b == a))
+            if ((f.a == a && f.b == b) ||
+                (f.a == b && f.b == a))
+            {
                 return &f;
+            }
         }
 
-        fronts.push_back({a, b, {}});
+        fronts.push_back({
+            a,
+            b
+        });
+
         return &fronts.back();
     };
 
-    // наполняем фронты
+    // =====================
+    // СОЗДАНИЕ ФРОНТОВ
+    // =====================
+
     for (auto &cmd : commandMgr.commands)
     {
-        if (cmd.state == CommandState::InRetreat) continue;
+        if (cmd.units <= 0)
+            continue;
+
+        if (cmd.state == CommandState::InRetreat)
+            continue;
 
         Front* f = getFront(cmd.fromCity, cmd.toCity);
+
         f->cmds.push_back(&cmd);
     }
 
+    // =====================
+    // ОБНАРУЖЕНИЕ СТОЛКНОВЕНИЙ
+    // =====================
 
-    // =====================
-    // ОБНАРУЖЕНИЕ СТОЛКНОВЕНИЙ предикт столкновений и я кричу остановите каткуууу
-    // =====================
     for (auto &f : fronts)
     {
         if (f.cmds.size() < 2)
             continue;
+
+        // ищем существующий battleDot
+        bool existingBattle = false;
+        float existingDot = 0.5f;
+
+        for (auto *cmd : f.cmds)
+        {
+            if (cmd->state == CommandState::InBattle)
+            {
+                existingBattle = true;
+
+                if (cmd->fromCity == f.a)
+                    existingDot = cmd->battleDot;
+                else
+                    existingDot = 1.f - cmd->battleDot;
+
+                break;
+            }
+        }
+
+        // =====================
+        // ФРОНТ УЖЕ СУЩЕСТВУЕТ
+        // =====================
+
+        if (existingBattle)
+        {
+            for (auto *cmd : f.cmds)
+            {
+                // уже стоит на фронте
+                if (cmd->state == CommandState::InBattle)
+                    continue;
+
+                float prog =
+                    1.f - ((float)cmd->remainingTurns / cmd->totalTurns);
+
+                bool reachedBattle = false;
+
+                // направление A -> B
+                if (cmd->fromCity == f.a)
+                {
+                    reachedBattle = prog >= existingDot;
+                    cmd->battleDot = existingDot;
+                }
+                else
+                {
+                    reachedBattle = prog >= (1.f - existingDot);
+                    cmd->battleDot = 1.f - existingDot;
+                }
+
+                // дошёл до фронта
+                if (reachedBattle)
+                {
+                    cmd->state = CommandState::InBattle;
+                }
+            }
+
+            continue;
+        }
+
+        // =====================
+        // НОВОЕ СТОЛКНОВЕНИЕ
+        // =====================
+
+        bool battleStarted = false;
 
         for (auto *a : f.cmds)
         {
             for (auto *b : f.cmds)
             {
                 if (a == b) continue;
-                if (a->owner == b->owner) continue;
 
+                if (a->owner == b->owner)continue;
 
-                float progA = commandMgr.getProgress(*a);
-                float progB = commandMgr.getProgress(*b);
+                if (a->fromCity == b->fromCity) continue;
 
-                if (progA >= (1.f - progB))
-                {
-                    // если видим столкновение в следующем ходу, запоминаем где
-                    float meet = (progA + (1.f - progB)) * 0.5f;
+                // путь
+                int path = std::max(a->totalTurns, b->totalTurns);
 
-                    a->state = CommandState::InBattle;
-                    b->state = CommandState::InBattle;
+                // позиции армий
+                int posA = a->totalTurns - a->remainingTurns;
+                int posB = b->totalTurns - b->remainingTurns;
 
-                    a->battleDot = meet;
-                    b->battleDot = 1.f - meet;
+                // расстояние между ними
+                int distance = path - (posA + posB);
 
-                }
+                // столкновение
+                if (distance > 0)
+                    continue;
+
+                // =====================
+                // СОЗДАЁМ ФРОНТ
+                // =====================
+
+                float meet = (float)posA / path;
+
+                meet = std::clamp(meet, 0.05f, 0.95f);
+
+                a->state = CommandState::InBattle;
+                b->state = CommandState::InBattle;
+
+                a->battleDot = meet;
+                b->battleDot = 1.f - meet;
+
+                battleStarted = true;
+
+                break;
             }
+
+            if (battleStarted)
+                break;
         }
     }
 
 
     // =====================
-    // БОЙ (ЧЕРЕЗ СТОРОНЫ, БЕЗ МОРАЛИ)
+    // БОЙ (ЧЕРЕЗ СТОРОНЫ)
     // =====================
     for (auto &f : fronts)
     {
@@ -122,6 +236,7 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
             std::vector<Command*> cmds;
 
             int totalUnits = 0;
+            float morale;
         };
 
         std::vector<Group> groups;
@@ -150,10 +265,15 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         // -------- СЧИТАЕМ ЧИСЛЕННОСТЬ --------
         for (auto &g : groups)
         {
+            int count = 0;
             for (auto *cmd : g.cmds)
             {
                 g.totalUnits += cmd->units;
+                g.morale += cmd->morale;
+
+                count++;
             }
+            g.morale = g.morale / count;
         }
 
         // -------- БОЙ --------
@@ -165,18 +285,21 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         int unitsA = gA.totalUnits;
         int unitsB = gB.totalUnits;
 
-        std::cout << "A: " << unitsA << " B: " << unitsB << std::endl;
 
         if (unitsA <= 0 || unitsB <= 0) continue;
 
         // -------- СЧИТАЕМ ПОТЕРИ --------
         float k = 0.25f;
 
-        int lossA = std::max(1, (int)(k * gB.totalUnits));
-        int lossB = std::max(1, (int)(k * gA.totalUnits));
+        int lossA = std::max(30, (int)(k * gB.totalUnits));
+        int lossB = std::max(30, (int)(k * gA.totalUnits));
 
-        std::cout << "lossA: " << lossA << " lossB: " << lossB << std::endl;
 
+        lossA = lossA * gB.morale;
+        lossB = lossB * gA.morale;
+
+        //std::cout << "lossA: " << lossA << " lossB: " << lossB << std::endl;
+        //std::cout << "MoraleA: " << gA.morale << " moraleB: " << gB.morale << std::endl;
 
         // -------- НАКАПЛИВАЕМ УРОН --------
         std::unordered_map<Command*, int> pendingLoss;
@@ -257,11 +380,17 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
 
 
         // =====================
-        // ПРИМЕНЯЕМ УРОН
+        // ПРИМЕНЯЕМ УРОН и пробуем мораль
         // =====================
         for (auto &[cmd, loss] : pendingLoss)
         {
+            float moraleloss =  (float)loss / (cmd->units + 1) * (float)loss / (cmd->units + 1);
+
+            cmd->morale -= moraleloss;
+            if (cmd->morale < 0.4f) cmd->morale = 0.4f;
+
             cmd->units -= loss;
+
 
             City* a = cityMgr.findById(cmd->fromCity);
             City* b = cityMgr.findById(cmd->toCity);
@@ -277,30 +406,94 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
     // =====================
     // ОКОНЧАНИЕ БОЯ
     // =====================
+
     for (auto &f : fronts)
     {
-        std::unordered_set<int> aliveOwners;
+        // =====================
+        // ТОЛЬКО УЧАСТНИКИ БОЯ
+        // =====================
+
+        std::vector<Command*> battleParticipants;
 
         for (auto *c : f.cmds)
         {
-            if (c->units > 0 && c->state == CommandState::InBattle)
-            {
-                aliveOwners.insert(c->owner);
-            }
+            if (c->state != CommandState::InBattle)
+                continue;
+
+            if (c->units <= 0)
+                continue;
+
+            battleParticipants.push_back(c);
         }
 
-        if (aliveOwners.size() <= 1)
-        {
-            for (auto *c : f.cmds)
-            {
-                if (c->units <= 0)
-                    continue;
+        if (battleParticipants.empty())
+            continue;
 
-                c->state = CommandState::Activated;
-                c->battleDot = 1;
+        // =====================
+        // ПРОВЕРКА ПОБЕДИТЕЛЯ
+        // =====================
+
+        std::unordered_set<int> aliveOwners;
+
+        for (auto *c : battleParticipants)
+        {
+            aliveOwners.insert(c->owner);
+        }
+
+        // бой продолжается
+        if (aliveOwners.size() > 1)
+            continue;
+
+        // =====================
+        // ГРУППИРОВКА ПОБЕДИТЕЛЕЙ
+        // =====================
+
+        std::unordered_map<int, std::vector<Command*>> winnerGroups;
+
+        for (auto *c : battleParticipants)
+        {
+            winnerGroups[c->owner].push_back(c);
+        }
+
+        // =====================
+        // ОБЪЕДИНЕНИЕ
+        // =====================
+
+        for (auto &[owner, cmds] : winnerGroups)
+        {
+            if (cmds.empty())
+                continue;
+
+            Command* main = cmds.front();
+
+            int totalUnits = 0;
+            float morale = 0.f;
+            int count = 0;
+
+            for (auto *c : cmds)
+            {
+                totalUnits += c->units;
+                morale += c->morale;
+                count++;
+            }
+
+            morale /= std::max(1, count);
+
+            // главная армия
+            main->units = totalUnits;
+            main->morale = morale;
+
+            main->state = CommandState::Activated;
+            main->battleDot = 1.f;
+
+            // остальные удалить
+            for (size_t i = 1; i < cmds.size(); i++)
+            {
+                cmds[i]->units = 0;
             }
         }
     }
+
 
     // =====================
     // ПРИБЫТИЕ
@@ -323,6 +516,7 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         newArmy.owner = cmd.owner;
         newArmy.soldiers = cmd.units;
         newArmy.currentCityId = toCity->id;
+        newArmy.morale = cmd.morale;
 
         armyMgr.armies.push_back(newArmy);
 
@@ -372,7 +566,6 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
 
 }
 
-
 // ===================== MERGE ARMIES =====================
 void SimulationSystem::mergeArmiesInCities(ArmyManager& armyMgr, CityManager& cityMgr)
 {
@@ -381,51 +574,85 @@ void SimulationSystem::mergeArmiesInCities(ArmyManager& armyMgr, CityManager& ci
         std::vector<Army*> cityArmies;
 
         // =====================
-        // собрать армии в городе
+        // СОБРАТЬ АРМИИ В ГОРОДЕ
         // =====================
         for (auto &army : armyMgr.armies)
         {
-            if (army.currentCityId == city.id) cityArmies.push_back(&army);
+            if (army.currentCityId == city.id)
+                cityArmies.push_back(&army);
         }
-        if (cityArmies.empty()) continue;
+
+        if (cityArmies.empty())
+            continue;
 
         // =====================
         // СЛИЯНИЕ АРМИЙ ОДНОГО ВЛАДЕЛЬЦА
         // =====================
-        // (в будущем тут будет мораль армии я надеюсь очень что сделаю)
         for (size_t i = 0; i < cityArmies.size(); i++)
         {
-            // выделяем одну главную и туда всех переводим
             Army* main = cityArmies[i];
-            if (main->soldiers <= 0) continue;
-            // скидываем начиная со второй
+
+            if (main->soldiers <= 0)
+                continue;
+
+            // =====================
+            // ДЛЯ СРЕДНЕЙ МОРАЛИ
+            // =====================
+            float moraleSum = main->morale;
+            int moraleCount = 1;
+
             for (size_t j = i + 1; j < cityArmies.size(); j++)
             {
                 Army* other = cityArmies[j];
-                if (other->soldiers <= 0) continue;
 
-                if (main->owner == other->owner)
-                {
-                    main->soldiers += other->soldiers;
-                    other->soldiers = 0;
-                }
+                if (other->soldiers <= 0)
+                    continue;
+
+                // только армии одного владельца
+                if (main->owner != other->owner)
+                    continue;
+
+                // =====================
+                // ОБЪЕДИНЕНИЕ
+                // =====================
+                main->soldiers += other->soldiers;
+
+                moraleSum += other->morale;
+                moraleCount++;
+
+                other->soldiers = 0;
             }
+
+            // =====================
+            // СРЕДНЯЯ МОРАЛЬ
+            // =====================
+            main->morale = moraleSum / moraleCount;
         }
 
         // =====================
-        // ОПРЕДЕЛЕНИЕ ОСАДЫ - когда в городе сразу две армиии - город ничей
+        // ОПРЕДЕЛЕНИЕ ОСАДЫ
         // =====================
         int firstOwner = -1;
         bool conflict = false;
 
         for (auto *army : cityArmies)
         {
-            if (army->soldiers <= 0) continue;
+            if (army->soldiers <= 0)
+                continue;
 
-            if (firstOwner == -1) firstOwner = army->owner;
-            else if (army->owner != firstOwner) conflict = true;
+            if (firstOwner == -1)
+            {
+                firstOwner = army->owner;
+            }
+            else if (army->owner != firstOwner)
+            {
+                conflict = true;
+            }
         }
 
+        // =====================
+        // ВЛАДЕЛЕЦ ГОРОДА
+        // =====================
         if (conflict)
         {
             city.owner = -1; // ОСАДА
@@ -437,7 +664,7 @@ void SimulationSystem::mergeArmiesInCities(ArmyManager& armyMgr, CityManager& ci
     }
 
     // =====================
-    // удалить мёртвые армии
+    // УДАЛЕНИЕ МЁРТВЫХ АРМИЙ
     // =====================
     armyMgr.armies.erase(
         std::remove_if(
@@ -451,7 +678,6 @@ void SimulationSystem::mergeArmiesInCities(ArmyManager& armyMgr, CityManager& ci
         armyMgr.armies.end()
     );
 }
-
 
 // ===================== RESOLVE BATTLES =====================
 // когда собрали все армии в одну начинаем выяснять отношения
@@ -488,9 +714,24 @@ void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr
         int lossesA = std::min(powerA, (int)(powerB * lossFactor * siegeFactor));
         int lossesB = std::min(powerB, (int)(powerA * lossFactor * siegeFactor));
 
+        lossesA *= armyB->morale;
+        if (lossesA<30) lossesA = 30;
+        lossesB *= armyA->morale;
+        if (lossesB<30) lossesB = 30;
+
+
         // =====================
         // применяем потери
         // =====================
+        float moraleLossA =  (float)lossesA / ((float)powerA + 1) * (float)lossesA / ((float)powerA + 1) * 0.1f;
+        float moraleLossB =  (float)lossesB / ((float)powerB + 1) * (float)lossesB / ((float)powerB + 1) * 0.1f;
+
+        armyA->morale -= moraleLossA;
+        if (armyA->morale< 0.4f) armyA->morale = 0.4f;
+        armyB->morale -= moraleLossB;
+        if (armyB->morale< 0.4f) armyB->morale = 0.4f;
+
+
         armyA->soldiers -= lossesA;
         armyB->soldiers -= lossesB;
 
@@ -558,6 +799,8 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         float score;
 
         enum Type { AttackCity, ReinforceFront } type;
+
+        float morale;
     };
 
     std::vector<AICmd> candidates;
@@ -668,7 +911,8 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                     targetCity,
                     sendUnits,
                     score,
-                    AICmd::ReinforceFront
+                    AICmd::ReinforceFront,
+                    army.morale
                 };
                 found = true;
             }
@@ -723,13 +967,13 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 }
                 // сюда тоже dir бонус, что отступать лучше назад
                 // =========================== риски =========================
-                if (allyUnits < enemyUnits * 0.3f) {score += 30.f; sendUnits=allyUnits*0.8f;}; // сильно проигрываем - лучше отступить
-                if (allyUnits > enemyUnits) {score -= 100.f; sendUnits=0;}; // у тебя город в осаде и ты выйгрываешь, куда собсветнно собрался
+                if (allyUnits < enemyUnits * 0.4f) {score += 60.f; sendUnits=allyUnits*0.8f;}; // сильно проигрываем - лучше отступить
+                if (allyUnits > enemyUnits) {score -= 400.f; sendUnits=0;}; // у тебя город в осаде и ты выйгрываешь, куда собсветнно собрался
 
                 // добавляем приоритет, если отступаем на свои земли
                 bool isEnemyCity = (target->owner != army.owner);
                 //
-                if (isEnemyCity) score -= 50.f;
+                if (isEnemyCity) score -= 40.f;
                 else score += 10.f;
 
             }
@@ -748,7 +992,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                     dx = (float)(toCityPtr->position.x - fromCityPtr->position.x);
                 }
                 // ограничиваем влияние, чтобы не раздувало score
-                float directionBonus = std::clamp(dx * 0.05f, -50.f, 50.f);
+                float directionBonus = std::clamp(dx * 0.05f, -50.f, 40.f);
                 score += directionBonus;
 
                 // ============ 2. куда идем, на врага или так ===================
@@ -756,7 +1000,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 bool isEnemyCity = (target->owner != army.owner);
 
                 if (isEnemyCity)
-                    score += 30.f;
+                    score += 35.f;
                 else
                     score += 10.f;
 
@@ -764,6 +1008,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 // ================= 3. оценка сил ===========================
                 auto armiesInCity = armyMgr.getAllInCity(target->id);
 
+                // считаем силы
                 int enemyUnits = 0;
                 int allyUnits = 0;
                 for (auto *a : armiesInCity)
@@ -773,6 +1018,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                     else
                         enemyUnits += a->soldiers;
                 }
+                // на врага идти выгоднее
                 if (enemyUnits > 0)
                 {
                     int targetUnits = enemyUnits - allyUnits;
@@ -782,34 +1028,44 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 else
                 {
                     // экспансия
-                    sendUnits = army.soldiers * 0.95f;
+                    sendUnits = army.soldiers;
+                    score -= 40.f;
+
+                    for (int neighborId : from->neighbors) // спишем по 30 очков за экспанисию, если рядом бои
+                    {
+                        City *c = cityMgr.findById(neighborId);
+                        if (c->owner == -1) score -= 30.f;
+                    }
                 }
-                if (enemyUnits == 0) // мы конечно команду добавим, но приоритет у нее не самый сладкий
-                {
-                    score -= 40.f; //
-                }
+
+                // риски при поддержке города
+                if (allyUnits * 1.5f < enemyUnits) score += 100.f; // города нужно удерживать
+
+
+                // риски при нападении на город
 
                 int ourTotal = sendUnits + allyUnits;
 
-                // проигрываем - повышаем приоритет
-                if (ourTotal < enemyUnits)
-                    score += 40.f;
+                // потенциально проигрываем
+                if (ourTotal < enemyUnits) score += 25.f;
+
 
                 // сильно проигрываем - игра не стоит свеч пупупу увы и ах
-                if (sendUnits < enemyUnits * 0.3f)
+                if (ourTotal < enemyUnits * 0.3f)
                     score -= 80.f;
 
                 // потенциальная победа
-                if (ourTotal > enemyUnits * 1.5f)
-                    score += 20.f;
+                if (ourTotal > enemyUnits * 1.1f)
+                    score += 35.f;
 
                 // ======================= 4. лучше двигать большие армии ===================
-                float armyPower = (float)sendUnits;
-                float powerBonus = std::log(armyPower + 1.f) * 20.f;
+                float armyPower = (float)army.soldiers;
+                float powerBonus = std::log(armyPower + 1.f) * 15.f;
 
                 score += powerBonus;
 
             }
+            if (sendUnits <= 0) continue;
 
             candidates.push_back({
                 army.id,
@@ -817,13 +1073,31 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 neighbor,
                 sendUnits,
                 score,
-                AICmd::AttackCity
+                AICmd::AttackCity,
+                army.morale
             });
         }
     }
+
+    std::cout << "============" << std::endl;
+    int place = 0;
+    for (auto &cmd : candidates)
+    {
+        place++;
+        std::cout << "place " << place << std::endl;
+
+        std::cout << "command" << std::endl;
+        std::cout << "from " << cityMgr.findById(cmd.fromCity)->name << std::endl;
+        std::cout << "to " << cityMgr.findById(cmd.toCity)->name << std::endl;
+        std::cout << "units " << cmd.sendUnits << std::endl;
+        std::cout << "type " << cmd.type << std::endl;
+        std::cout << "points " << cmd.score << std::endl;
+        std::cout << std::endl;
+    }
+
+
     // =====================
     // ФИЛЬТР ( пока на одну армию одно действие) надо потом пофиксить потому что нет много задачности как у игррока
-
     // ====================
     std::unordered_map<int, AICmd> bestPerArmy;
 
@@ -855,18 +1129,6 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         });
 
 
-    for (auto &cmdAI : candidates)
-    {
-        std::cout << "cand for turn: \n";
-        std::cout << "from: " << cityMgr.findById(cmdAI.fromCity)->name << "\n";
-        std::cout << "to: " << cityMgr.findById(cmdAI.toCity)->name << "\n";
-        std::cout << "units: " << cmdAI.sendUnits << "\n";
-        std::cout << "score: " << cmdAI.score << "\n";
-
-
-        std::cout << std::endl;
-    }
-
     // =====================
     // EXECUTE TOP 3
     // =====================
@@ -888,7 +1150,8 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
             turns,
             0,
             1,
-            CommandState::Animating
+            CommandState::Animating,
+            cmdAI.morale
         });
 
         commandMgr.updateOffsets(cmdAI.fromCity, cmdAI.toCity);

@@ -23,7 +23,10 @@ int CityManager::distance(int a, int b)
     float dx = A->position.x - B->position.x;
     float dy = A->position.y - B->position.y;
 
-    return std::max(1, (int)(sqrt(dx*dx + dy*dy) / 150.f));
+    int finalDistance = std::max(1, (int)(sqrt(dx*dx + dy*dy) / 150.f));
+    if (finalDistance % 2 == 0) finalDistance++;
+
+    return finalDistance;
 }
 
 // получить указатель на город под мышкой

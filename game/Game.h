@@ -47,6 +47,7 @@ private:
         EditingCommand
     };
     GameState state = Idle;
+    int turn=0;
 
     int selectedArmyId = -1;
     int selectedCommandIndex = -1;

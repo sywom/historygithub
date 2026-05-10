@@ -93,7 +93,6 @@ void CommandManager::retreat(Command& cmd, int units)
     // =====================
     // ПРОВЕРКИ
     // =====================
-    if (cmd.state != CommandState::InBattle) return;
     if (units <= 0 || units > cmd.units)return;
 
     // =====================
@@ -120,9 +119,11 @@ void CommandManager::retreat(Command& cmd, int units)
 
     r.state = CommandState::InRetreat;
 
-    r.offset = cmd.offset; // можно оставить тот же или пересчитать
+    r.offset = 0.2f; // можно оставить тот же или пересчитать
 
-    r.battleDot = cmd.battleDot;
+    r.battleDot = 1.f - getProgress(cmd);
+
+    r.morale = cmd.morale;
 
     // =====================
     // 4. ВЫЧИТАЕМ ЮНИТЫ

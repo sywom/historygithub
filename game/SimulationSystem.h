@@ -9,7 +9,7 @@ class SimulationSystem
 {
 public:
 
-    static void endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr); // закончить ход
+    static void endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount); // закончить ход
 
     static void mergeArmiesInCities(ArmyManager& armyMgr, CityManager& cityMgr); // работа с армиями после хода (обработка хода)
 
