@@ -53,8 +53,8 @@ void Game::run()
 void Game::init()
 {
     // подгрузка файлов
-    //window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
-    window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
+    window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
+    //window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
     window.setFramerateLimit(76);
 
 
@@ -116,7 +116,10 @@ void Game::processEvents()
             float maxZoomY = (2.f * borderY) / window.getDefaultView().getSize().y * 0.9f;
             float maxZoom = std::min(maxZoomX, maxZoomY);
 
+            float minZoom = (2.f * borderX) / window.getDefaultView().getSize().x * 0.3f;
+
             if (targetZoom > maxZoom) targetZoom = maxZoom;
+            if (targetZoom < minZoom) targetZoom = minZoom;
             if (targetZoom < 0.1f) targetZoom = 0.1f;
         }
 
@@ -165,7 +168,8 @@ void Game::processEvents()
                     int fromCity = armyMgr.getById(selectedArmyId)->currentCityId;
                     int toCity = city.id;
                     // движение только по правильным соседям, точка from!=to, максимальное кол-во команд = 3
-                    if (cityMgr.canMoveBetweenCities(fromCity, toCity, 0) &&    // 0 - игрок
+                    if (
+                        cityMgr.canMoveBetweenCities(fromCity, toCity, 0) && // 0 - игрок
                         armyMgr.getById(selectedArmyId)->currentCityId != city.id &&
                         commandMgr.getPendingCount() < maxCommands)
                         {
@@ -224,17 +228,21 @@ void Game::processEvents()
 
                         if ((cmd.state == CommandState::InBattle || cmd.state == CommandState::Activated)  && cmd.owner == 0) // отсутпление (отмена)
                         {
-                            City* a = cityMgr.findById(cmd.fromCity);
-                            City* b = cityMgr.findById(cmd.toCity);
 
-                            if (!a || !b) continue;
-
-                            auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
-                            if (isNearCurve(mouse, curve, 10.f))
+                            if (!commandMgr.isRetreatBlocked(cmd.fromCity, cmd.toCity, 0))// можно ли отступить игроку
                             {
-                                state = SelectingRetreat;
-                                selectedCommandIndex = i;
-                                break;
+                                City* a = cityMgr.findById(cmd.fromCity);
+                                City* b = cityMgr.findById(cmd.toCity);
+
+                                if (!a || !b) continue;
+
+                                auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
+                                if (isNearCurve(mouse, curve, 10.f))
+                                {
+                                    state = SelectingRetreat;
+                                    selectedCommandIndex = i;
+                                    break;
+                                }
                             }
                         }
                         else if (cmd.state == CommandState::Created)// команда этого хода

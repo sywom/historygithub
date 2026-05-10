@@ -87,6 +87,40 @@ bool CommandManager::isOpposite(const Command& a, const Command& b)
     return a.fromCity == b.toCity && a.toCity == b.fromCity && a.owner != b.owner;
 }
 
+// можно ли создать команду отступления
+bool CommandManager::isRetreatBlocked(int cityA, int cityB, int owner)
+{
+    bool enemyOnA = false;
+    bool enemyOnB = false;
+
+    for (auto &cmd : commands)
+    {
+        if (cmd.units <= 0)
+            continue;
+
+        if (cmd.owner == owner)
+            continue;
+
+        // =====================
+        //  ОПРЕДЕЛЕНИЕ
+        // =====================
+
+        if (cmd.fromCity == cityA && cmd.toCity == cityB)
+        {
+            // A → B
+            enemyOnB = true;
+        }
+        else if (cmd.fromCity == cityB && cmd.toCity == cityA)
+        {
+            // B → A
+            enemyOnA = true;
+        }
+    }
+
+        return enemyOnA && enemyOnB;
+    }
+
+
 // отступ с линии фронта
 void CommandManager::retreat(Command& cmd, int units)
 {

@@ -21,6 +21,7 @@ public:
     bool isOpposite(const Command& a, const Command& b);// являются ли команды противоположными
 
     void retreat(Command& cmd, int units); // отступ с линии фронта
+    bool isRetreatBlocked(int cityA, int cityB, int owner); // а можно ли отступить
 
 
 };

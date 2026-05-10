@@ -7,6 +7,9 @@
 #include <iostream>
 
 // самая сложная хреновина которуя в жизни писал
+
+
+// конец хода - все итоги сражения. все.
 void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount)
 {
     if (turnCount > 15)
@@ -141,22 +144,25 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
                 if (cmd->state == CommandState::InBattle)
                     continue;
 
-                float prog =
-                    1.f - ((float)cmd->remainingTurns / cmd->totalTurns);
+                float prog = 1.f - ((float)cmd->remainingTurns / cmd->totalTurns);
 
                 bool reachedBattle = false;
 
-                // направление A -> B
+                float targetDot;
+
+                // команда идёт со стороны A
                 if (cmd->fromCity == f.a)
                 {
-                    reachedBattle = prog >= existingDot;
-                    cmd->battleDot = existingDot;
+                    targetDot = existingDot;
                 }
                 else
                 {
-                    reachedBattle = prog >= (1.f - existingDot);
-                    cmd->battleDot = 1.f - existingDot;
+                    targetDot = 1.f - existingDot;
                 }
+
+                cmd->battleDot = targetDot;
+
+                reachedBattle = prog >= targetDot;
 
                 // дошёл до фронта
                 if (reachedBattle)
@@ -404,6 +410,7 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
     }
 
 
+
     // =====================
     // ОКОНЧАНИЕ БОЯ
     // =====================
@@ -441,26 +448,63 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
             aliveOwners.insert(c->owner);
         }
 
-        // бой продолжается
+        // бой ещё идёт
         if (aliveOwners.size() > 1)
             continue;
 
-        // =====================
-        // ГРУППИРОВКА ПОБЕДИТЕЛЕЙ
-        // =====================
+        // =====================================================
+        // ГРУППИРОВКА ПО:
+        // owner + сторона фронта
+        // =====================================================
 
-        std::unordered_map<int, std::vector<Command*>> winnerGroups;
+        struct GroupKey
+        {
+            int owner;
+            bool fromA;
+
+            bool operator==(const GroupKey& other) const
+            {
+                return owner == other.owner
+                    && fromA == other.fromA;
+            }
+        };
+
+        struct GroupKeyHash
+        {
+            size_t operator()(const GroupKey& k) const
+            {
+                return (k.owner * 10) + k.fromA;
+            }
+        };
+
+        std::unordered_map<
+            GroupKey,
+            std::vector<Command*>,
+            GroupKeyHash
+        > winnerGroups;
+
+        // =====================
+        // ГРУППИРУЕМ
+        // =====================
 
         for (auto *c : battleParticipants)
         {
-            winnerGroups[c->owner].push_back(c);
+            GroupKey key;
+
+            key.owner = c->owner;
+
+            // true = шёл со стороны A
+            // false = со стороны B
+            key.fromA = (c->fromCity == f.a);
+
+            winnerGroups[key].push_back(c);
         }
 
         // =====================
         // ОБЪЕДИНЕНИЕ
         // =====================
 
-        for (auto &[owner, cmds] : winnerGroups)
+        for (auto &[key, cmds] : winnerGroups)
         {
             if (cmds.empty())
                 continue;
@@ -469,25 +513,36 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
 
             int totalUnits = 0;
             float morale = 0.f;
+
             int count = 0;
 
             for (auto *c : cmds)
             {
                 totalUnits += c->units;
+
                 morale += c->morale;
+
                 count++;
             }
 
             morale /= std::max(1, count);
 
-            // главная армия
+            // =====================
+            // ГЛАВНАЯ КОМАНДА
+            // =====================
+
             main->units = totalUnits;
             main->morale = morale;
 
             main->state = CommandState::Activated;
+
+            // больше не стоит на фронте
             main->battleDot = 1.f;
 
-            // остальные удалить
+            // =====================
+            // УДАЛЯЕМ ОСТАЛЬНЫЕ
+            // =====================
+
             for (size_t i = 1; i < cmds.size(); i++)
             {
                 cmds[i]->units = 0;
@@ -782,8 +837,9 @@ void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr
 /*
 1. найти все и вся (фронты и города)
 2. Сгенерировать команды:
-   - reinforce для фронтов
-   - attack для городов
+   - поддержка фронтов (пока только поддержка. надо дополнить)
+   - атаки по городам (обработка ситуаций при осаде (отступление с города и помощь), экспансия, захват города с боем (оценка рисков))
+   - анализ входящих атак и формирование фронтов (ПОКА НЕ РЕАЛИЗОВАНО)
 3. Посчитать score каждой команды
 4. Отсортировать
 5. Взять топ-3
@@ -899,9 +955,6 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
             // слабая армия
             if (sendUnits < need * 0.3f)
                 score -= 80.f;
-
-            // дистанция ВАЖНА
-            score -= distance * 10.f;
 
             if (score > bestScore)
             {
