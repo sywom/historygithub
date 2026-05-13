@@ -53,8 +53,8 @@ void Game::run()
 void Game::init()
 {
     // подгрузка файлов
-    window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
-    //window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
+    //window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
+    window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
     window.setFramerateLimit(76);
 
 
@@ -187,12 +187,15 @@ void Game::processEvents()
                                 newCommand.totalTurns = turnsForCommnad;
                                 newCommand.battleDot = 1;
                                 newCommand.morale = armyMgr.getById(selectedArmyId)->morale;
+                                newCommand.offset = 0.01f;
 
                                 commandMgr.commands.push_back(newCommand);
                                 //пересмотр offset для кривой
                                 commandMgr.updateOffsets(fromCity, toCity);
                                 selectedArmyId = -1;
                                 state = Idle;
+
+                                std::cout << "1726";
                             }
                         }
                 }
@@ -688,41 +691,44 @@ void Game::render(float dt)
 
         window.draw(line);
 
-
-        // ================ стрелка на конце команды ===========
-        sf::Vector2f p1,p2;
-        if (cmd.state == CommandState::InBattle)
-        {
-            p2 = curve[battleIndex];
-            p1 = curve[battleIndex-2];
-        }
-        else
-        {
-            p2 = curve[progressIndex];
-            p1 = curve[progressIndex-2];
-        }
-
-        sf::Vector2f dir = p2 - p1;
-        float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-        if (len != 0)
-        {
-            dir /= len;
-
-            sf::Vector2f left(-dir.y, dir.x);
-            float size = 10.f;
-
-            sf::Vertex arrow[] =
+        if(cmd.state != CommandState::Created) {
+            // ================ стрелка на конце команды ===========
+            sf::Vector2f p1, p2;
+            if (cmd.state == CommandState::InBattle)
             {
-                sf::Vertex(p2, sf::Color::Yellow),
-                sf::Vertex(p2 - dir * size + left * size * 0.5f,color),
+                p2 = curve[battleIndex];
+                p1 = curve[battleIndex - 2];
+            }
+            else
+            {
+                p2 = curve[progressIndex];
+                p1 = curve[progressIndex - 2];
+            }
 
-                sf::Vertex(p2, sf::Color::Yellow),
-                sf::Vertex(p2 - dir * size - left * size * 0.5f, color),
-            };
+            sf::Vector2f dir = p2 - p1;
+            float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (len != 0)
+            {
+                dir /= len;
 
-            window.draw(arrow, 4, sf::Lines);
+                sf::Vector2f left(-dir.y, dir.x);
+                float size = 10.f;
+
+                sf::Vertex arrow[] =
+                {
+                    sf::Vertex(p2, sf::Color::Yellow),
+                    sf::Vertex(p2 - dir * size + left * size * 0.5f,color),
+
+                    sf::Vertex(p2, sf::Color::Yellow),
+                    sf::Vertex(p2 - dir * size - left * size * 0.5f, color),
+                };
+
+                window.draw(arrow, 4, sf::Lines);
+            }
+
+
         }
-
+        
         // ============== текст юнитов на команде ============
 
         sf::Vector2f textPos;

@@ -2,6 +2,8 @@
 #include "City.h"
 #include <vector>
 
+
+
 class CityManager {
 public:
     std::vector<City> cities;
@@ -14,6 +16,12 @@ public:
 
     std::vector<sf::Vector2f> buildCurve(sf::Vector2f A, sf::Vector2f B, float offset); // построить кривую между городами
     sf::Vector2f getPointOnCurve(std::vector<sf::Vector2f>& curve, float t);   // найти точку
+
+    sf::Texture ourCityTexture;
+    sf::Texture franceCityTexture;
+    sf::Texture ciegeCityTexture;
+    sf::Texture selectedCityTexture;
+    sf::Texture sosedCityTexture;
 
     // загрузка всех значений
     void setTexture(int cityId, int state);

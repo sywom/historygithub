@@ -82,12 +82,6 @@ bool CityManager::canMoveBetweenCities(int fromId, int toId, int owner)
 // TEXTURES
 // =======================================================
 
-sf::Texture ourCityTexture;
-sf::Texture franceCityTexture;
-sf::Texture ciegeCityTexture;
-sf::Texture selectedCityTexture;
-sf::Texture sosedCityTexture;
-
 void CityManager::setTexture(int cityId, int state)
 {
     for (auto& city : cities)
