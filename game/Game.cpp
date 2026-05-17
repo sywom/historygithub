@@ -50,15 +50,115 @@ void Game::run()
 // ==================================================
 // ===================== INIT =====================
 // ==================================================
+void Game::initMenu()
+{
+    sf::Vector2u win = window.getSize();
+
+    float centerX = win.x * 0.5f;
+
+    // ===================== BACKGROUND =====================
+
+    menuBg.setSize(sf::Vector2f(win));
+    menuBg.setFillColor(sf::Color(20, 20, 20));
+
+    // ===================== TITLE =====================
+
+    title.setFont(font);
+    title.setString(L"there is nothing i can do");
+    title.setCharacterSize(40);
+
+    sf::FloatRect titleBounds =
+        title.getLocalBounds();
+
+    title.setPosition(
+        centerX - titleBounds.width / 2.f,
+        150.f
+    );
+
+    // =====================================================
+    // START BUTTON
+    // =====================================================
+
+    startButton.setFont(font);
+    startButton.setString(L"Начать игру");
+    startButton.setCharacterSize(24);
+
+    sf::FloatRect startBounds =
+        startButton.getLocalBounds();
+
+    startButton.setPosition(
+        centerX - startBounds.width / 2.f,
+        300.f
+    );
+
+    startButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        285.f,
+        300.f,
+        50.f
+    );
+
+    // =====================================================
+    // RESOLUTION BUTTON
+    // =====================================================
+
+    resolutionButton.setFont(font);
+    resolutionButton.setCharacterSize(24);
+
+    resolutionButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        365.f,
+        300.f,
+        50.f
+    );
+
+    // =====================================================
+    // FULLSCREEN BUTTON
+    // =====================================================
+
+    fullscreenButton.setFont(font);
+    fullscreenButton.setCharacterSize(24);
+
+    fullscreenButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        445.f,
+        300.f,
+        50.f
+    );
+
+    // =====================================================
+    // EXIT BUTTON
+    // =====================================================
+
+    exitButton.setFont(font);
+    exitButton.setString(L"Выход");
+    exitButton.setCharacterSize(24);
+
+    sf::FloatRect exitBounds =
+        exitButton.getLocalBounds();
+
+    exitButton.setPosition(
+        centerX - exitBounds.width / 2.f,
+        540.f
+    );
+
+    exitButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        525.f,
+        300.f,
+        50.f
+    );
+}
+
 void Game::init()
 {
     // подгрузка файлов
-    window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
+    window.create(sf::VideoMode(900, 600), "history", sf::Style::Close);
     //window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
     window.setFramerateLimit(76);
 
 
-    if (!backgroundImage.loadFromFile("images/ gamemapV1.png"))
+    if (!backgroundImage.loadFromFile("images/map.png"))
     {
             std::cout << "Failed to load map\n";
     }
@@ -88,25 +188,37 @@ void Game::init()
     endTurnText.setFont(font);
     centerText.setFont(font);
 
-
-    // начальный экран
-    menuBg.setSize(sf::Vector2f(window.getSize()));
-    menuBg.setFillColor(sf::Color(20, 20, 20));
-
-    title.setFont(font);
-    title.setString(L"there is nothing i can do");
-    title.setCharacterSize(40);
-    title.setPosition(300, 150);
-
-    startButton.setFont(font);
-    startButton.setString(L"Начать игру");
-    startButton.setCharacterSize(24);
-    startButton.setPosition(350, 300);
-
-    startButtonRect = sf::FloatRect(350, 300, 200, 40);
+    initMenu();
 }
 
+void Game::applyVideoSettings()
+{
+    if (settings.fullscreen)
+    {
+        window.create(
+            sf::VideoMode::getDesktopMode(),
+            "History",
+            sf::Style::Fullscreen
+        );
+    }
+    else
+    {
+        window.create(
+            sf::VideoMode(
+                settings.resolution.x,
+                settings.resolution.y
+            ),
+            "History",
+            sf::Style::Close
+        );
+    }
 
+    window.setFramerateLimit(60);
+
+    view = window.getDefaultView();
+
+    initMenu();
+}
 
 // ==================================================
 // ===================== СОБЫТИЯ ====================
@@ -127,12 +239,52 @@ void Game::processEvents()
         switch (globalState)
         {
             case Menu:
+
                 if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
                 {
-                    sf::Vector2f mouse =window.mapPixelToCoords(mouseScreen, window.getDefaultView());
+                    sf::Vector2f mouse =
+                        window.mapPixelToCoords(
+                            mouseScreen,
+                            window.getDefaultView()
+                        );
+
+                    // ================= START =================
+
                     if (startButtonRect.contains(mouse))
                     {
                         globalState = Playing;
+                    }
+
+                    // ================= RESOLUTION =================
+
+                    if (resolutionButtonRect.contains(mouse))
+                    {
+                        currentResolutionIndex++;
+
+                        if (currentResolutionIndex >= resolutions.size())
+                            currentResolutionIndex = 0;
+
+                        settings.resolution =
+                            resolutions[currentResolutionIndex];
+
+                        applyVideoSettings();
+                    }
+
+                    // ================= FULLSCREEN =================
+
+                    if (fullscreenButtonRect.contains(mouse))
+                    {
+                        settings.fullscreen =
+                            !settings.fullscreen;
+
+                        applyVideoSettings();
+                    }
+
+                    // ================= EXIT =================
+
+                    if (exitButtonRect.contains(mouse))
+                    {
+                        window.close();
                     }
                 }
                 break;
@@ -580,6 +732,45 @@ void Game::updateHud()
     centerText.setPosition(pos.x + size.x * 0.1f, pos.y + size.y * 0.2f);
 }
 
+void Game::updateMenu()
+{
+    sf::Vector2u r =
+        resolutions[currentResolutionIndex];
+
+    resolutionButton.setString(
+        L"Разрешение: " +
+        std::to_wstring(r.x) +
+        L"x" +
+        std::to_wstring(r.y)
+    );
+
+    fullscreenButton.setString(
+        settings.fullscreen
+        ? L"Режим: Fullscreen"
+        : L"Режим: Windowed"
+    );
+
+    float centerX =
+        window.getSize().x * 0.5f;
+
+    sf::FloatRect rBounds =
+        resolutionButton.getLocalBounds();
+
+    resolutionButton.setPosition(
+        centerX - rBounds.width / 2.f,
+        380.f
+    );
+
+    sf::FloatRect fBounds =
+        fullscreenButton.getLocalBounds();
+
+    fullscreenButton.setPosition(
+        centerX - fBounds.width / 2.f,
+        460.f
+    );
+}
+
+
 // ==================================================
 // ===================== UPDATE =====================
 // ==================================================
@@ -587,7 +778,10 @@ void Game::update(float dt)
 {
     switch (globalState)
     {
-        case Menu: break;
+        case Menu:
+
+            updateMenu();
+            break;
 
         case Playing:
 
@@ -611,7 +805,6 @@ void Game::update(float dt)
             updateHud();
             // ========================= АНИМАЦИИ??? ====================
             animMgr.update(dt);
-
             break;
 
         case Paused: break;
@@ -977,8 +1170,13 @@ void Game::renderMenu()
     window.setView(window.getDefaultView());
 
     window.draw(menuBg);
+
     window.draw(title);
+
     window.draw(startButton);
+    window.draw(resolutionButton);
+    window.draw(fullscreenButton);
+    window.draw(exitButton);
 }
 
 // ==================================================

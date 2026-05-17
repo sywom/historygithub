@@ -84,10 +84,12 @@ private:
     //
     int maxCommands = 3;
 
+    void initMenu();
 
     void updateCamera(float dt);
     void hoverCity();
     void updateHud();
+    void updateMenu();
 
     void renderCities();
     void renderCommands();
@@ -95,22 +97,6 @@ private:
     void renderFps(float dt);
 
     void renderMenu();
-
-    // hud
-    sf::RectangleShape menuBg;
-    sf::Text title;
-    sf::Text startButton;
-    sf::FloatRect startButtonRect;
-
-
-    sf::FloatRect endTurnButton;
-
-    sf::RectangleShape hudBackground;
-    sf::RectangleShape endTurnShape;
-    sf::RectangleShape centerPanel;
-
-    sf::Text endTurnText;
-    sf::Text centerText;
 
     int playerTotalUnits = 0;
     int enemyTotalUnits = 0;
@@ -120,4 +106,61 @@ private:
     bool waitingForAnimationDisappear = false;
     float waitTimer = 0.f;
     float animationTime = 0.5f;
+
+
+
+    // =========== настройки разрешения ===============
+    void applyVideoSettings();
+    struct VideoSettings
+    {
+        sf::Vector2u resolution = {900, 600};
+
+        bool fullscreen = false;
+    };
+
+    VideoSettings settings;
+
+    std::vector<sf::Vector2u> resolutions =
+    {
+        {900, 600},
+        {1280, 720},
+        {1366, 768},
+        {1600, 900},
+        {1920, 1080}
+    };
+
+    int currentResolutionIndex = 0;
+
+    // ==================================================
+    // MENU UI
+    // ==================================================
+
+
+    sf::Text titleText;
+    sf::FloatRect endTurnButton;
+
+    sf::RectangleShape hudBackground;
+    sf::RectangleShape endTurnShape;
+    sf::RectangleShape centerPanel;
+
+    sf::Text endTurnText;
+    sf::Text centerText;
+
+    // ===================== MENU =====================
+
+    sf::RectangleShape menuBg;
+
+    sf::Text title;
+
+    sf::Text startButton;
+    sf::Text resolutionButton;
+    sf::Text fullscreenButton;
+    sf::Text exitButton;
+
+    sf::FloatRect startButtonRect;
+    sf::FloatRect resolutionButtonRect;
+    sf::FloatRect fullscreenButtonRect;
+    sf::FloatRect exitButtonRect;
 };
+
+
