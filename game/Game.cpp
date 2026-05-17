@@ -53,8 +53,8 @@ void Game::run()
 void Game::init()
 {
     // подгрузка файлов
-    //window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
-    window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
+    window.create(sf::VideoMode(1280, 720), "history", sf::Style::Close);
+    //window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
     window.setFramerateLimit(76);
 
 
