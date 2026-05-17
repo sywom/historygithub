@@ -39,6 +39,14 @@ private:
     const float smoothFactor = 0.2f;
 
     // ===== GAME STATE =====
+    enum GameGlobalState
+    {
+        Menu,
+        Playing,
+        Paused
+    };
+    GameGlobalState globalState = Menu;
+
     enum GameState
     {
         Idle,
@@ -75,18 +83,37 @@ private:
     void render(float dt);
     //
     int maxCommands = 3;
-    // потом мооожет быть есои не лень
-    void handleMouseClick(sf::Event& event);
 
-    void updateHover();
-    void updateCamera();
-    void updatePopup();
 
-    void drawWorld();
-    void drawUI();
+    void updateCamera(float dt);
+    void hoverCity();
+    void updateHud();
 
-    // логика передвежения армий
+    void renderCities();
+    void renderCommands();
+    void renderPopUp();
+    void renderFps(float dt);
+
+    void renderMenu();
+
+    // hud
+    sf::RectangleShape menuBg;
+    sf::Text title;
+    sf::Text startButton;
+    sf::FloatRect startButtonRect;
+
+
     sf::FloatRect endTurnButton;
+
+    sf::RectangleShape hudBackground;
+    sf::RectangleShape endTurnShape;
+    sf::RectangleShape centerPanel;
+
+    sf::Text endTurnText;
+    sf::Text centerText;
+
+    int playerTotalUnits = 0;
+    int enemyTotalUnits = 0;
 
     // время - фильм такой есть, смешной
     bool waitingForAnimationAppear = false;

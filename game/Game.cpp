@@ -84,7 +84,26 @@ void Game::init()
     cityMgr.loadConnections("other/connectionsCities.txt");
     armyMgr.init();
 
-    endTurnButton = sf::FloatRect(900.f, 20.f, 150.f, 40.f);
+
+    endTurnText.setFont(font);
+    centerText.setFont(font);
+
+
+    // начальный экран
+    menuBg.setSize(sf::Vector2f(window.getSize()));
+    menuBg.setFillColor(sf::Color(20, 20, 20));
+
+    title.setFont(font);
+    title.setString(L"there is nothing i can do");
+    title.setCharacterSize(40);
+    title.setPosition(300, 150);
+
+    startButton.setFont(font);
+    startButton.setString(L"Начать игру");
+    startButton.setCharacterSize(24);
+    startButton.setPosition(350, 300);
+
+    startButtonRect = sf::FloatRect(350, 300, 200, 40);
 }
 
 
@@ -104,298 +123,296 @@ void Game::processEvents()
         if (event.type == sf::Event::Closed)
             window.close();
 
-        // ================== ЗУМ ====================
-        if (event.type == sf::Event::MouseWheelScrolled)
+
+        switch (globalState)
         {
-            if (event.mouseWheelScroll.delta > 0)
-                targetZoom *= 0.9f;
-            else
-                targetZoom *= 1.1f;
-
-            float maxZoomX = (2.f * borderX) / window.getDefaultView().getSize().x * 0.9f;
-            float maxZoomY = (2.f * borderY) / window.getDefaultView().getSize().y * 0.9f;
-            float maxZoom = std::min(maxZoomX, maxZoomY);
-
-            float minZoom = (2.f * borderX) / window.getDefaultView().getSize().x * 0.3f;
-
-            if (targetZoom > maxZoom) targetZoom = maxZoom;
-            if (targetZoom < minZoom) targetZoom = minZoom;
-            if (targetZoom < 0.1f) targetZoom = 0.1f;
-        }
-
-        // ================= ПЕРЕТАСКИВАНИЕ КАМЕРЫ =================
-        if (event.type == sf::Event::MouseButtonPressed &&
-            event.mouseButton.button == sf::Mouse::Left)
-        {
-            isDrag = true;
-            beginDragPos = mouseScreen;
-        }
-
-        if (event.type == sf::Event::MouseButtonReleased &&
-            event.mouseButton.button == sf::Mouse::Left)
-        {
-            isDrag = false;
-        }
-
-        // ==================== КЛИКИ ==========================
-        if (event.type == sf::Event::MouseButtonPressed)
-        {
-            bool clickHandled = false;  // сначала обрабаываем клик по городу (пробуем)
-
-            // ========================= команды (СОЗДАНИЕ) =============================
-            if (event.mouseButton.button == sf::Mouse::Left &&
-                hoveredCity != nullptr)
-            {
-                City& city = *hoveredCity;
-                city.isSelected = !city.isSelected;
-
-                //====================== первая точка для команды =======================
-                if (state == Idle)
+            case Menu:
+                if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
                 {
-                    for (auto &army : armyMgr.armies)
+                    sf::Vector2f mouse =window.mapPixelToCoords(mouseScreen, window.getDefaultView());
+                    if (startButtonRect.contains(mouse))
                     {
-                        if (army.currentCityId == city.id && army.owner == 0)  //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        {
-                            selectedArmyId = army.id;
-                            state = SelectingTarget;
-                            break;
-                        }
+                        globalState = Playing;
                     }
                 }
-                // ======================== вторая точка ============================
-                else if (state == SelectingTarget)
+                break;
+
+            case Playing:
+
+                // ================== ЗУМ ====================
+                if (event.type == sf::Event::MouseWheelScrolled)
                 {
-                    int fromCity = armyMgr.getById(selectedArmyId)->currentCityId;
-                    int toCity = city.id;
-                    // движение только по правильным соседям, точка from!=to, максимальное кол-во команд = 3
-                    if (
-                        cityMgr.canMoveBetweenCities(fromCity, toCity, 0) && // 0 - игрок
-                        armyMgr.getById(selectedArmyId)->currentCityId != city.id &&
-                        commandMgr.getPendingCount() < maxCommands)
-                        {
-                            if (!commandMgr.isDuplicateInTurn(selectedArmyId, fromCity, toCity)) // делать ли наслоение
-                            {
-                                int turnsForCommnad = cityMgr.distance(fromCity, toCity);
+                    if (event.mouseWheelScroll.delta > 0)
+                        targetZoom *= 0.9f;
+                    else
+                        targetZoom *= 1.1f;
 
-                                Command newCommand;
-                                newCommand.owner = armyMgr.getById(selectedArmyId)->owner;
-                                newCommand.armyId = selectedArmyId;
-                                newCommand.fromCity = fromCity;
-                                newCommand.toCity = toCity;
-                                newCommand.units = 0;
-                                newCommand.remainingTurns = turnsForCommnad;
-                                newCommand.totalTurns = turnsForCommnad;
-                                newCommand.battleDot = 1;
-                                newCommand.morale = armyMgr.getById(selectedArmyId)->morale;
-                                newCommand.offset = 0.01f;
+                    float maxZoomX = (2.f * borderX) / window.getDefaultView().getSize().x * 0.9f;
+                    float maxZoomY = (2.f * borderY) / window.getDefaultView().getSize().y * 0.9f;
+                    float maxZoom = std::min(maxZoomX, maxZoomY);
 
-                                commandMgr.commands.push_back(newCommand);
-                                //пересмотр offset для кривой
-                                commandMgr.updateOffsets(fromCity, toCity);
-                                selectedArmyId = -1;
-                                state = Idle;
+                    float minZoom = (2.f * borderX) / window.getDefaultView().getSize().x * 0.3f;
 
-                                std::cout << "1726";
-                            }
-                        }
-                }
-                // ===================== город для отсутпления с фронта ==============
-                else if (state == SelectingRetreat)
-                {
-                    Command& cmd = commandMgr.commands[selectedCommandIndex];
-
-                    if (city.id == cmd.fromCity)
-                    {
-                        //cmd.state = CommandState::InRetreat;
-                        commandMgr.retreat(cmd, cmd.units);// вся команда отсупает
-                    }
-                    state = Idle;
+                    if (targetZoom > maxZoom) targetZoom = maxZoom;
+                    if (targetZoom < minZoom) targetZoom = minZoom;
+                    if (targetZoom < 0.1f) targetZoom = 0.1f;
                 }
 
-                clickHandled = true;
-            }
-            // ========================= coords click (debug) ===============
-            //if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) std::cout << mouseWorld.x << " " << mouseWorld.y << "\n";
-
-            //========================= КОМАНДЫ (EDIT) ==================
-            // теперь можно попробовать обработать команду
-            if (!clickHandled && state == Idle)
-            {
-                if (event.mouseButton.button == sf::Mouse::Left)
+                // ================= ПЕРЕТАСКИВАНИЕ КАМЕРЫ =================
+                if (event.type == sf::Event::MouseButtonPressed &&
+                    event.mouseButton.button == sf::Mouse::Left)
                 {
-                    sf::Vector2f mouse = mouseWorld;
+                    isDrag = true;
+                    beginDragPos = mouseScreen;
+                }
 
-                    for (int i = 0; i < (int)commandMgr.commands.size(); i++)
+                if (event.type == sf::Event::MouseButtonReleased &&
+                    event.mouseButton.button == sf::Mouse::Left)
+                {
+                    isDrag = false;
+                }
+
+                // ==================== КЛИКИ ==========================
+                if (event.type == sf::Event::MouseButtonPressed)
+                {
+                    bool clickHandled = false;  // сначала обрабаываем клик по городу (пробуем)
+
+                    // ========================= команды (СОЗДАНИЕ) =============================
+                    if (event.mouseButton.button == sf::Mouse::Left &&
+                        hoveredCity != nullptr)
                     {
-                        auto &cmd = commandMgr.commands[i];
+                        City& city = *hoveredCity;
+                        city.isSelected = !city.isSelected;
 
-                        if ((cmd.state == CommandState::InBattle || cmd.state == CommandState::Activated)  && cmd.owner == 0) // отсутпление (отмена)
+                        //====================== первая точка для команды =======================
+                        if (state == Idle && turn!=0)
                         {
-
-                            if (!commandMgr.isRetreatBlocked(cmd.fromCity, cmd.toCity, 0))// можно ли отступить игроку
+                            for (auto &army : armyMgr.armies)
                             {
-                                City* a = cityMgr.findById(cmd.fromCity);
-                                City* b = cityMgr.findById(cmd.toCity);
-
-                                if (!a || !b) continue;
-
-                                auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
-                                if (isNearCurve(mouse, curve, 10.f))
+                                if (army.currentCityId == city.id && army.owner == 0)  //  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                                 {
-                                    state = SelectingRetreat;
-                                    selectedCommandIndex = i;
+                                    selectedArmyId = army.id;
+                                    state = SelectingTarget;
                                     break;
                                 }
                             }
                         }
-                        else if (cmd.state == CommandState::Created)// команда этого хода
+                        // ======================== вторая точка ============================
+                        else if (state == SelectingTarget)
                         {
+                            int fromCity = armyMgr.getById(selectedArmyId)->currentCityId;
+                            int toCity = city.id;
+                            // движение только по правильным соседям, точка from!=to, максимальное кол-во команд = 3
+                            if (
+                                cityMgr.canMoveBetweenCities(fromCity, toCity, 0) && // 0 - игрок
+                                armyMgr.getById(selectedArmyId)->currentCityId != city.id &&
+                                commandMgr.getPendingCount() < maxCommands)
+                                {
+                                    if (!commandMgr.isDuplicateInTurn(selectedArmyId, fromCity, toCity)) // делать ли наслоение
+                                    {
+                                        int turnsForCommnad = cityMgr.distance(fromCity, toCity);
+
+                                        Command newCommand;
+                                        newCommand.owner = armyMgr.getById(selectedArmyId)->owner;
+                                        newCommand.armyId = selectedArmyId;
+                                        newCommand.fromCity = fromCity;
+                                        newCommand.toCity = toCity;
+                                        newCommand.units = 0;
+                                        newCommand.remainingTurns = turnsForCommnad;
+                                        newCommand.totalTurns = turnsForCommnad;
+                                        newCommand.battleDot = 1;
+                                        newCommand.morale = armyMgr.getById(selectedArmyId)->morale;
+                                        newCommand.offset = 0.01f;
+
+                                        commandMgr.commands.push_back(newCommand);
+                                        //пересмотр offset для кривой
+                                        commandMgr.updateOffsets(fromCity, toCity);
+                                        selectedArmyId = -1;
+                                        state = Idle;
+
+                                        // вызываем редактиврование
+                                        state = EditingCommand;
+                                        selectedCommandIndex = (int)commandMgr.commands.size() - 1;
+                                        showPopup = true;
+                                        inputUnits = commandMgr.commands.back().units;
+
+
+                                    }
+                                }
+                        }
+                        // ===================== город для отсутпления с фронта ==============
+                        else if (state == SelectingRetreat)
+                        {
+                            Command& cmd = commandMgr.commands[selectedCommandIndex];
+
+                            if (city.id == cmd.fromCity)
+                            {
+                                //cmd.state = CommandState::InRetreat;
+                                commandMgr.retreat(cmd, cmd.units);// вся команда отсупает
+                            }
+                            state = Idle;
+                        }
+
+                        clickHandled = true;
+                    }
+                    // ========================= coords click (debug) ===============
+                    //if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) std::cout << mouseWorld.x << " " << mouseWorld.y << "\n";
+
+                    //========================= КОМАНДЫ (EDIT) ==================
+                    // теперь можно попробовать обработать команду
+                    if (!clickHandled && state == Idle)
+                    {
+                        if (event.mouseButton.button == sf::Mouse::Left)
+                        {
+                            sf::Vector2f mouse = mouseWorld;
+
+                            for (int i = 0; i < (int)commandMgr.commands.size(); i++)
+                            {
+                                auto &cmd = commandMgr.commands[i];
+
+                                if ((cmd.state == CommandState::InBattle || cmd.state == CommandState::Activated)  && cmd.owner == 0) // отсутпление (отмена)
+                                {
+
+                                    if (!commandMgr.isRetreatBlocked(cmd.fromCity, cmd.toCity, 0))// можно ли отступить игроку
+                                    {
+                                        City* a = cityMgr.findById(cmd.fromCity);
+                                        City* b = cityMgr.findById(cmd.toCity);
+
+                                        if (!a || !b) continue;
+
+                                        auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
+                                        if (isNearCurve(mouse, curve, 10.f))
+                                        {
+                                            state = SelectingRetreat;
+                                            selectedCommandIndex = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (cmd.state == CommandState::Created)// команда этого хода
+                                {
+                                    City* a = cityMgr.findById(cmd.fromCity);
+                                    City* b = cityMgr.findById(cmd.toCity);
+
+                                    if (!a || !b) continue;
+                                    // EDIT
+                                    auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
+                                    if (isNearCurve(mouse, curve, 10.f))
+                                    {
+                                        state = EditingCommand;
+                                        selectedCommandIndex = i;
+                                        showPopup = true;
+                                        inputUnits = cmd.units;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // ===========================КОМАНДЫ (УДАЛЕНИЕ) ======================
+                    if (event.mouseButton.button == sf::Mouse::Right)
+                    {
+                        sf::Vector2f mouse = mouseWorld;
+
+                        for (int i = 0; i < (int)commandMgr.commands.size(); i++)
+                        {
+                            auto &cmd = commandMgr.commands[i];
+
+                            if (!(cmd.state == CommandState::Created)) continue;
+
                             City* a = cityMgr.findById(cmd.fromCity);
                             City* b = cityMgr.findById(cmd.toCity);
 
                             if (!a || !b) continue;
-                            // EDIT
+                            // DELETE
                             auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
                             if (isNearCurve(mouse, curve, 10.f))
                             {
-                                state = EditingCommand;
-                                selectedCommandIndex = i;
-                                showPopup = true;
-                                inputUnits = cmd.units;
+                                commandMgr.commands.erase(commandMgr.commands.begin() + i);
                                 break;
                             }
                         }
                     }
                 }
-            }
-            // ===========================КОМАНДЫ (УДАЛЕНИЕ) ======================
-            if (event.mouseButton.button == sf::Mouse::Right)
-            {
-                sf::Vector2f mouse = mouseWorld;
-
-                for (int i = 0; i < (int)commandMgr.commands.size(); i++)
+                // ========================= ОСТАЛЬНЫЕ ДЕЙСТВИЯ ===================
+                // ===== POPUP  =====
+                if (state == EditingCommand)
                 {
-                    auto &cmd = commandMgr.commands[i];
-
-                    if (!(cmd.state == CommandState::Created)) continue;
-
-                    City* a = cityMgr.findById(cmd.fromCity);
-                    City* b = cityMgr.findById(cmd.toCity);
-
-                    if (!a || !b) continue;
-                    // DELETE
-                    auto curve = cityMgr.buildCurve(a->position, b->position, cmd.offset);
-                    if (isNearCurve(mouse, curve, 10.f))
+                    // ===================== TEXT ====================
+                    if (showPopup && event.type == sf::Event::TextEntered)
                     {
-                        commandMgr.commands.erase(commandMgr.commands.begin() + i);
-                        break;
+                        if (event.text.unicode >= '0' && event.text.unicode <= '9')
+                            inputUnits = inputUnits * 10 + (event.text.unicode - '0');
+                    }
+                    // ==================== ПОДТВЕРЖДЕНИЕ РЕДАКТИРОВАНИЯ КОМАНДЫ ==============
+                    if (showPopup && event.type == sf::Event::KeyPressed)
+                    {
+                        if (event.key.code == sf::Keyboard::Enter)
+                        {
+                            int armyId = commandMgr.commands[selectedCommandIndex].armyId;
+                            int maxUnits = commandMgr.getAvailableUnits(armyId, armyMgr) + commandMgr.commands[selectedCommandIndex].units;
+
+                            if (inputUnits > maxUnits) inputUnits = maxUnits;
+
+                            commandMgr.commands[selectedCommandIndex].units = inputUnits;
+
+
+                            state = Idle;
+                            showPopup = false;
+                            selectedCommandIndex = -1;
+                            inputUnits = 0;
+                        }
+
+                        if (event.key.code == sf::Keyboard::BackSpace)
+                            inputUnits /= 10;
                     }
                 }
-            }
-        }
-        // ========================= ОСТАЛЬНЫЕ ДЕЙСТВИЯ ===================
-        // ===== POPUP  =====
-        if (state == EditingCommand)
-        {
-            // ===================== TEXT ====================
-            if (showPopup && event.type == sf::Event::TextEntered)
-            {
-                if (event.text.unicode >= '0' && event.text.unicode <= '9')
-                    inputUnits = inputUnits * 10 + (event.text.unicode - '0');
-            }
-            // ==================== ПОДТВЕРЖДЕНИЕ РЕДАКТИРОВАНИЯ КОМАНДЫ ==============
-            if (showPopup && event.type == sf::Event::KeyPressed)
-            {
-                if (event.key.code == sf::Keyboard::Enter)
+
+                // ====================== СВЯЗИ МЕЖДУ ГОРОДАМИ==================
+                if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::C)
                 {
-                    int armyId = commandMgr.commands[selectedCommandIndex].armyId;
-                    int maxUnits = commandMgr.getAvailableUnits(armyId, armyMgr) + commandMgr.commands[selectedCommandIndex].units;
-
-                    if (inputUnits > maxUnits) inputUnits = maxUnits;
-
-                    commandMgr.commands[selectedCommandIndex].units = inputUnits;
-
-
-                    state = Idle;
-                    showPopup = false;
-                    selectedCommandIndex = -1;
-                    inputUnits = 0;
+                    showConnections = !showConnections;
                 }
 
-                if (event.key.code == sf::Keyboard::BackSpace)
-                    inputUnits /= 10;
-            }
-        }
+                if ((event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape)
+                ||  (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Right))
+                {
+                    state = Idle;
+                    selectedArmyId = -1;
+                    showPopup = false;
+                    selectedCommandIndex = -1;
+                }
+                // ======================ЗАКОНЧИТЬ ХОД=====================
+                if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
+                {
+                    sf::Vector2f mouse = window.mapPixelToCoords(mouseScreen, window.getDefaultView());
+                    if (endTurnButton.contains(mouse) && !waitingForAnimationAppear)
+                    {
+                        // AI
+                        SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr, animMgr);    // ход наполеончика
 
-        // ====================== СВЯЗИ МЕЖДУ ГОРОДАМИ==================
-        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::C)
-        {
-            showConnections = !showConnections;
-        }
+                        waitingForAnimationAppear = true; // чтобы вообще понять что ии сделал, я 3 секунды даю на посмотреть на команды ии
+                        waitTimer = 0.f;
 
-        if (event.type == sf::Event::KeyPressed &&
-            event.key.code == sf::Keyboard::Escape)
-        {
-            state = Idle;
-            selectedArmyId = -1;
-            showPopup = false;
-            selectedCommandIndex = -1;
-        }
-        // ======================ЗАКОНЧИТЬ ХОД=====================
-        if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
-        {
-            sf::Vector2f mouse = window.mapPixelToCoords(mouseScreen, window.getDefaultView());
-            if (endTurnButton.contains(mouse))
-            {
-                // AI
-                SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr, animMgr);    // ход наполеончика
+                        // end turn перенесен в update
+                        selectedArmyId = -1;
+                        selectedCommandIndex = -1;
+                        showPopup = false;
+                        inputUnits = 0;
 
-                waitingForAnimationAppear = true; // чтобы вообще понять что ии сделал, я 3 секунды даю на посмотреть на команды ии
-                waitTimer = 0.f;
-
-                // end turn перенесен в update
-
-                selectedArmyId = -1;
-                selectedCommandIndex = -1;
-                showPopup = false;
-                inputUnits = 0;
-
-                state = Idle;
-            }
-        }
-
-
-        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::W)
-        {
-            animMgr.spawnWin({600.f, 400.f});
+                        state = Idle;
+                    }
+                }
+                break;
         }
     }
 }
 
-    // ===================== UPDATE =====================
-void Game::update(float dt)
+
+
+
+void Game::updateCamera(float dt)
 {
-    // ===================== ЕСТЬ ЛИ МЫШЬ НАД ГОРОДОМ =====================
-    hoveredCity = nullptr;
-
-    sf::Vector2f mouseWorldPos = mouseWorld;
-
-    for (auto &city : cityMgr.cities)
-    {
-        float dx = mouseWorldPos.x - city.position.x;
-        float dy = mouseWorldPos.y - city.position.y;
-
-        float distSq = dx * dx + dy * dy;
-        float radius = 20.f;
-
-        if (distSq < radius * radius)
-        {
-            hoveredCity = &city;
-            break;
-        }
-    }
-
-    // ===================== ДВИЖЕНИЕ КАМЕРЫ =====================
     if (isDrag)
     {
         sf::Vector2i cur = mouseScreen;
@@ -430,35 +447,180 @@ void Game::update(float dt)
     newView.setCenter(center + (targetCenter - center) * smoothFactor);
 
     view = newView;
-    // ====================== Задержки при анимациях (при появлении и удалении команд =========================
-    if (waitingForAnimationAppear)
-    {
-        waitTimer += dt;
+}
 
-        if (waitTimer >= animationTime)
+void Game::hoverCity()
+{
+    hoveredCity = nullptr;
+
+    sf::Vector2f mouseWorldPos = mouseWorld;
+
+    for (auto &city : cityMgr.cities)
+    {
+        float dx = mouseWorldPos.x - city.position.x;
+        float dy = mouseWorldPos.y - city.position.y;
+
+        float distSq = dx * dx + dy * dy;
+        float radius = 20.f;
+
+        if (distSq < radius * radius)
         {
-            SimulationSystem::endTurn(commandMgr, armyMgr, cityMgr, animMgr, Game::turn++);
-            waitingForAnimationAppear = false;
+            hoveredCity = &city;
+            break;
         }
     }
-
-    // ========================= АНИМАЦИИ??? ================
-    animMgr.update(dt);
 }
-    // ==================================================
-    // ===================== RENDER =====================
-    // ==================================================
-void Game::render(float dt)
-{
-    //====================================================
-    // ================= ВСЕ ЧТО В МИРЕ ==================
-    //====================================================
-    window.clear(sf::Color(200, 200, 200));
-    window.setView(view);
-    window.draw(backgroundSprite);
 
-    // ===================================================
-    // ===================== ГОРОДА  =====================
+void Game::updateHud()
+{
+    // =============================== HUD =========================================
+    sf::Vector2u winSize = window.getSize();
+
+    float windowWidth  = static_cast<float>(winSize.x);
+    float windowHeight = static_cast<float>(winSize.y);
+
+    // =====================================
+    // HUD
+    // =====================================
+
+    float hudHeight = windowHeight * 0.14f;
+    float hudY = windowHeight - hudHeight;
+
+    hudBackground.setSize({windowWidth, hudHeight});
+    hudBackground.setPosition(0.f, hudY);
+    hudBackground.setFillColor(sf::Color(30,30,30,220));
+
+    // =====================================
+    // END TURN BUTTON
+    // =====================================
+
+    float buttonWidth  = windowWidth * 0.12f;
+    float buttonHeight = hudHeight * 0.65f;
+
+    float buttonX = windowWidth - buttonWidth - windowWidth * 0.02f;
+    float buttonY = hudY + (hudHeight - buttonHeight) / 2.f;
+
+    endTurnButton = sf::FloatRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+    endTurnShape.setSize({buttonWidth, buttonHeight});
+    endTurnShape.setPosition(buttonX, buttonY);
+    endTurnShape.setFillColor(sf::Color(120,120,120));
+
+    if (Game::turn==0) endTurnText.setString(L"Начать игру");
+    else endTurnText.setString(L"Закончить ход");
+
+
+    // =====================================
+    // BUTTON TEXT
+    // =====================================
+
+    endTurnText.setCharacterSize(25);
+    sf::FloatRect textBounds =endTurnText.getLocalBounds();
+
+    endTurnText.setPosition(
+        buttonX +
+        (buttonWidth - textBounds.width) / 2.f,
+
+        buttonY +
+        (buttonHeight - textBounds.height) / 2.f - 5.f
+    );
+
+    // =====================================
+    // CENTER PANEL
+    // =====================================
+
+    float centerWidth  = windowWidth * 0.35f;
+    float centerHeight = hudHeight * 0.75f;
+
+    float centerX = (windowWidth - centerWidth) / 2.f;
+    float centerY = hudY + (hudHeight - centerHeight) / 2.f;
+
+    centerPanel.setSize({centerWidth, centerHeight});
+    centerPanel.setPosition(centerX, centerY);
+    centerPanel.setFillColor(sf::Color(60,60,60));
+
+    playerTotalUnits = 0;
+    enemyTotalUnits = 0;
+
+    for (auto &c : cityMgr.cities)
+    {
+        auto armies = armyMgr.getAllInCity(c.id);
+
+        for (auto *army : armies)
+        {
+            if (army->owner == 0)
+                playerTotalUnits += army->soldiers;
+            else
+                enemyTotalUnits += army->soldiers;
+        }
+    }
+    for (auto &cmd : commandMgr.commands)
+    {
+        if (cmd.state == CommandState::Animating || cmd.state == CommandState::Created) continue;
+
+        if (cmd.owner == 0)
+            playerTotalUnits += cmd.units;
+        else
+            enemyTotalUnits += cmd.units;
+    }
+
+    centerText.setCharacterSize(18);
+    centerText.setFillColor(sf::Color::White);
+
+    centerText.setString(
+    L"Войска игрока: " +
+    std::to_wstring(playerTotalUnits) +
+    L"\nВражеские войска: " +
+    std::to_wstring(enemyTotalUnits)
+);
+
+    sf::Vector2f pos = centerPanel.getPosition();
+    sf::Vector2f size = centerPanel.getSize();
+
+    centerText.setPosition(pos.x + size.x * 0.1f, pos.y + size.y * 0.2f);
+}
+
+// ==================================================
+// ===================== UPDATE =====================
+// ==================================================
+void Game::update(float dt)
+{
+    switch (globalState)
+    {
+        case Menu: break;
+
+        case Playing:
+
+            // ===================== ЕСТЬ ЛИ МЫШЬ НАД ГОРОДОМ =====================
+            hoverCity();
+            // =====================  КАМЕРА =====================
+            updateCamera(dt);
+            // ====================== Задержки при анимациях (при появлении и удалении команд =========================
+            if (waitingForAnimationAppear)
+            {
+                waitTimer += dt;
+
+                if (waitTimer >= animationTime)
+                {
+                    state = Idle;
+                    SimulationSystem::endTurn(commandMgr, armyMgr, cityMgr, animMgr, Game::turn++);
+                    waitingForAnimationAppear = false;
+                }
+            }
+            // ========================= просчет информации про худ =======
+            updateHud();
+            // ========================= АНИМАЦИИ??? ====================
+            animMgr.update(dt);
+
+            break;
+
+        case Paused: break;
+    }
+}
+
+
+void Game::renderCities()
+{
     for (auto &c : cityMgr.cities)
     {
         // ===================== цвет =====================
@@ -586,10 +748,10 @@ void Game::render(float dt)
             }
         }
     }
+}
 
-    //=====================================================
-    // ===================== КОМАНДЫ ======================
-
+void Game::renderCommands()
+{
     // ========= отрисовка стрелки при выборе точки для команды ==============
     if (state==SelectingTarget)
     {
@@ -678,7 +840,7 @@ void Game::render(float dt)
         }
         else if (cmd.state == CommandState::InBattle)
         {
-            for (size_t i = 0; i <= battleIndex; i++) line.append(sf::Vertex(curve[i], color));
+            for (size_t i = 0; i < battleIndex; i++) line.append(sf::Vertex(curve[i], color));
         }
         else if (cmd.state == CommandState::Created)
         {
@@ -728,7 +890,7 @@ void Game::render(float dt)
 
 
         }
-        
+
         // ============== текст юнитов на команде ============
 
         sf::Vector2f textPos;
@@ -754,22 +916,11 @@ void Game::render(float dt)
         unitsText.setString(label);
         unitsText.setPosition(textPos + sf::Vector2f(5.f, -5.f));
         window.draw(unitsText);
-
-
-
     }
+}
 
-
-    // ===================== АНИМАЦИИ??? ============================
-    animMgr.draw(window);
-
-
-    //====================================================
-    //====================== UI ==========================
-    //====================================================
-    window.setView(window.getDefaultView());
-
-    // ===================== POPUP =====================
+void Game::renderPopUp()
+{
     if (showPopup)
     {
         sf::RectangleShape box({250, 150});
@@ -807,33 +958,83 @@ void Game::render(float dt)
 
         window.draw(maxText);
     }
-    // ===================== END TURN BUTTON ==================
-    sf::RectangleShape btn({150, 40});
-    btn.setPosition(900, 20);
-    btn.setFillColor(sf::Color(120,120,120));
+}
 
-    window.draw(btn);
-
-    sf::Text text;
-    text.setFont(font);
-    text.setCharacterSize(16);
-    text.setString("End Turn");
-    text.setPosition(920, 30);
-    window.draw(text);
-
-
-    // ======================= FPS ================================
-    /*
+void Game::renderFps(float dt)
+{
     sf::Text fpsText;
     fpsText.setFont(font);
     fpsText.setCharacterSize(16);
-    text.setPosition(20, 20);
+    fpsText.setPosition(20, 20);
 
-    fpsText.setString("fps: " + std::to_string((int)1/dt));
+    fpsText.setString("fps: " + std::to_string((int)(1/dt)));
 
     window.draw(fpsText);
-    */
+}
 
+void Game::renderMenu()
+{
+    window.setView(window.getDefaultView());
+
+    window.draw(menuBg);
+    window.draw(title);
+    window.draw(startButton);
+}
+
+// ==================================================
+// ===================== RENDER =====================
+// ==================================================
+void Game::render(float dt)
+{
+    //====================================================
+    // ================= ВСЕ ЧТО В МИРЕ ==================
+    //====================================================
+    window.clear(sf::Color(200, 200, 200));
+    window.setView(view);
+    window.draw(backgroundSprite);
+
+    switch (globalState)
+    {
+
+        case Playing:
+            // ===================== ГОРОДА  =====================
+            renderCities();
+            // ===================== КОМАНДЫ ======================
+            renderCommands();
+            // ===================== АНИМАЦИИ??? ============================
+            animMgr.draw(window);
+
+            //====================================================
+            //====================== UI ==========================
+            //====================================================
+            window.setView(window.getDefaultView());
+
+            // ===================== POPUP =====================
+            renderPopUp();
+            // ================HUD=====================
+            window.draw(hudBackground);
+
+            window.draw(centerPanel);
+            window.draw(centerText);
+
+            window.draw(endTurnShape);
+            window.draw(endTurnText);
+
+            // ======================= FPS ================================
+            renderFps(dt);
+
+
+            break;
+
+        case Menu:
+            renderMenu();
+            break;
+    }
 
     window.display();
 }
+
+
+
+
+

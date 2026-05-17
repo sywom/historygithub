@@ -18,8 +18,8 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         for (auto &army : armyMgr.armies)
         {
 
-            if (army.owner == 1) army.morale *= 0.98f;
-            if (army.owner == 0) army.morale *= 1.02f;
+            if (army.owner == 1) army.morale *= 0.97f;
+            if (army.owner == 0) army.morale *= 1.03f;
         }
     }
 
@@ -1120,6 +1120,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
 
             }
             if (sendUnits <= 0) continue;
+            if (neighbor==30) score-=1000.f;
 
             candidates.push_back({
                 army.id,

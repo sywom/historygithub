@@ -271,11 +271,10 @@ void AnimationManager::draw(sf::RenderWindow& window)
     //===============================
     // numbers
     //================================
+    sf::Font font;
+    font.loadFromFile("fonts/DejaVuSans.ttf");
     for (auto &n : numbers)
     {
-        sf::Font font;
-        font.loadFromFile("fonts/DejaVuSans.ttf");
-
         sf::Text text;
         text.setFont(font);
         text.setCharacterSize(20);
