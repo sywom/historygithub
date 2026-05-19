@@ -50,112 +50,220 @@ void Game::run()
 // ==================================================
 // ===================== INIT =====================
 // ==================================================
+
 void Game::initMenu()
 {
-    sf::Vector2u win = window.getSize();
+    // =====================================================
+    // BACKGROUND
+    // =====================================================
 
-    float centerX = win.x * 0.5f;
+    menuBg.setFillColor(
+        sf::Color(20,20,20)
+    );
 
-    // ===================== BACKGROUND =====================
-
-    menuBg.setSize(sf::Vector2f(win));
-    menuBg.setFillColor(sf::Color(20, 20, 20));
-
-    // ===================== TITLE =====================
+    // =====================================================
+    // TITLE
+    // =====================================================
 
     title.setFont(font);
-    title.setString(L"there is nothing i can do");
-    title.setCharacterSize(40);
 
-    sf::FloatRect titleBounds =
-        title.getLocalBounds();
-
-    title.setPosition(
-        centerX - titleBounds.width / 2.f,
-        150.f
+    title.setString(
+        L"there is nothing i can do"
     );
+
+    title.setCharacterSize(40);
 
     // =====================================================
     // START BUTTON
     // =====================================================
 
     startButton.setFont(font);
-    startButton.setString(L"Начать игру");
+
+    startButton.setString(
+        L"Начать игру"
+    );
+
     startButton.setCharacterSize(24);
-
-    sf::FloatRect startBounds =
-        startButton.getLocalBounds();
-
-    startButton.setPosition(
-        centerX - startBounds.width / 2.f,
-        300.f
-    );
-
-    startButtonRect = sf::FloatRect(
-        centerX - 150.f,
-        285.f,
-        300.f,
-        50.f
-    );
 
     // =====================================================
     // RESOLUTION BUTTON
     // =====================================================
 
     resolutionButton.setFont(font);
-    resolutionButton.setCharacterSize(24);
 
-    resolutionButtonRect = sf::FloatRect(
-        centerX - 150.f,
-        365.f,
-        300.f,
-        50.f
-    );
+    resolutionButton.setCharacterSize(24);
 
     // =====================================================
     // FULLSCREEN BUTTON
     // =====================================================
 
     fullscreenButton.setFont(font);
-    fullscreenButton.setCharacterSize(24);
 
-    fullscreenButtonRect = sf::FloatRect(
-        centerX - 150.f,
-        445.f,
-        300.f,
-        50.f
-    );
+    fullscreenButton.setCharacterSize(24);
 
     // =====================================================
     // EXIT BUTTON
     // =====================================================
 
     exitButton.setFont(font);
-    exitButton.setString(L"Выход");
+
+    exitButton.setString(
+        L"Выход"
+    );
+
     exitButton.setCharacterSize(24);
+}
 
-    sf::FloatRect exitBounds =
-        exitButton.getLocalBounds();
+void Game::initPauseMenu()
+{
+    // =====================================================
+    // BACKGROUND
+    // =====================================================
 
-    exitButton.setPosition(
-        centerX - exitBounds.width / 2.f,
-        540.f
+    pauseBg.setFillColor(
+        sf::Color(0,0,0,180)
     );
 
-    exitButtonRect = sf::FloatRect(
-        centerX - 150.f,
-        525.f,
-        300.f,
-        50.f
+    // =====================================================
+    // TITLE
+    // =====================================================
+
+    pauseTitle.setFont(font);
+
+    pauseTitle.setString(
+        L"Пауза"
     );
+
+    pauseTitle.setCharacterSize(42);
+
+    // =====================================================
+    // CONTINUE BUTTON
+    // =====================================================
+
+    continueButton.setFont(font);
+
+    continueButton.setString(
+        L"Продолжить"
+    );
+
+    continueButton.setCharacterSize(24);
+
+    // =====================================================
+    // RESOLUTION BUTTON
+    // =====================================================
+
+    pauseResolutionButton.setFont(font);
+
+    pauseResolutionButton.setCharacterSize(24);
+
+    // =====================================================
+    // FULLSCREEN BUTTON
+    // =====================================================
+
+    pauseFullscreenButton.setFont(font);
+
+    pauseFullscreenButton.setCharacterSize(24);
+
+    // =====================================================
+    // BACK TO MENU BUTTON
+    // =====================================================
+
+    backToMenuButton.setFont(font);
+
+    backToMenuButton.setString(
+        L"Главное меню"
+    );
+
+    backToMenuButton.setCharacterSize(24);
+}
+
+void Game::applyVideoSettings()
+{
+    sf::VideoMode mode;
+
+    sf::Uint32 style;
+
+    // =====================================================
+    // VIDEO MODE
+    // =====================================================
+
+    if (settings.fullscreen)
+    {
+        mode = sf::VideoMode::getDesktopMode();
+
+        style = sf::Style::Fullscreen;
+    }
+    else
+    {
+        mode = sf::VideoMode(
+            settings.resolution.x,
+            settings.resolution.y
+        );
+
+        style = sf::Style::Close;
+    }
+
+    // =====================================================
+    // CREATE WINDOW
+    // =====================================================
+
+    window.create(
+        mode,
+        "History",
+        style
+    );
+
+    window.setFramerateLimit(75);
+
+    // =====================================================
+    // RESET VIEW
+    // =====================================================
+
+    view = window.getDefaultView();
+
+    // =====================================================
+    // CAMERA CLAMP AFTER RESOLUTION CHANGE
+    // =====================================================
+
+    sf::Vector2f size = view.getSize();
+
+    float halfW = size.x / 2.f;
+    float halfH = size.y / 2.f;
+
+    // ограничение targetCenter в пределах карты
+    if (targetCenter.x - halfW < 0)
+        targetCenter.x = halfW;
+
+    if (targetCenter.y - halfH < 0)
+        targetCenter.y = halfH;
+
+    if (targetCenter.x + halfW > 2 * borderX)
+        targetCenter.x = 2 * borderX - halfW;
+
+    if (targetCenter.y + halfH > 2 * borderY)
+        targetCenter.y = 2 * borderY - halfH;
+
+    // синхронизация камеры
+    view.setCenter(targetCenter);
+
+    // =====================================================
+    // UPDATE UI LAYOUTS
+    // =====================================================
+
+    updateMenuLayout();
+
+    updatePauseMenuLayout();
+
+    updateHUDLayout();
 }
 
 void Game::init()
 {
+
+    applyVideoSettings();
     // подгрузка файлов
-    window.create(sf::VideoMode(900, 600), "history", sf::Style::Close);
+    //window.create(sf::VideoMode(900, 600), "history", sf::Style::Close);
     //window.create(sf::VideoMode(1920, 1080), "history", sf::Style::Close);
-    window.setFramerateLimit(76);
 
 
     if (!backgroundImage.loadFromFile("images/map.png"))
@@ -189,36 +297,9 @@ void Game::init()
     centerText.setFont(font);
 
     initMenu();
+    initPauseMenu();
 }
 
-void Game::applyVideoSettings()
-{
-    if (settings.fullscreen)
-    {
-        window.create(
-            sf::VideoMode::getDesktopMode(),
-            "History",
-            sf::Style::Fullscreen
-        );
-    }
-    else
-    {
-        window.create(
-            sf::VideoMode(
-                settings.resolution.x,
-                settings.resolution.y
-            ),
-            "History",
-            sf::Style::Close
-        );
-    }
-
-    window.setFramerateLimit(60);
-
-    view = window.getDefaultView();
-
-    initMenu();
-}
 
 // ==================================================
 // ===================== СОБЫТИЯ ====================
@@ -238,6 +319,68 @@ void Game::processEvents()
 
         switch (globalState)
         {
+            case Paused:
+
+                if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
+                {
+                    sf::Vector2f mouse =
+                        window.mapPixelToCoords(
+                            mouseScreen,
+                            window.getDefaultView()
+                        );
+
+                    // =================================================
+                    // CONTINUE
+                    // =================================================
+
+                    if (continueButtonRect.contains(mouse))
+                    {
+                        globalState = Playing;
+                    }
+
+                    // =================================================
+                    // RESOLUTION
+                    // =================================================
+
+                    if (pauseResolutionButtonRect.contains(mouse))
+                    {
+                        currentResolutionIndex++;
+
+                        if (currentResolutionIndex >= resolutions.size())
+                            currentResolutionIndex = 0;
+
+                        settings.resolution =
+                            resolutions[currentResolutionIndex];
+
+                        if (!settings.fullscreen)
+                        {
+                            applyVideoSettings();
+                        }
+                    }
+
+                    // =================================================
+                    // FULLSCREEN
+                    // =================================================
+
+                    if (pauseFullscreenButtonRect.contains(mouse))
+                    {
+                        settings.fullscreen =
+                            !settings.fullscreen;
+
+                        applyVideoSettings();
+                    }
+
+                    // =================================================
+                    // BACK TO MENU
+                    // =================================================
+
+                    if (backToMenuButtonRect.contains(mouse))
+                    {
+                        globalState = Menu;
+                    }
+                }
+                break;
+
             case Menu:
 
                 if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
@@ -541,7 +684,7 @@ void Game::processEvents()
                     if (endTurnButton.contains(mouse) && !waitingForAnimationAppear)
                     {
                         // AI
-                        SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr, animMgr);    // ход наполеончика
+                        SimulationSystem::makeAITurns(commandMgr, armyMgr, cityMgr, animMgr, turn);    // ход наполеончика
 
                         waitingForAnimationAppear = true; // чтобы вообще понять что ии сделал, я 3 секунды даю на посмотреть на команды ии
                         waitTimer = 0.f;
@@ -555,6 +698,13 @@ void Game::processEvents()
                         state = Idle;
                     }
                 }
+
+                // ================================== ПАУЗА ====================
+                if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape && state ==Idle)
+                {
+                    globalState = Paused;
+                }
+
                 break;
         }
     }
@@ -562,7 +712,9 @@ void Game::processEvents()
 
 
 
-
+// ==================================================
+// ===================== UPDATE =====================
+// ==================================================
 void Game::updateCamera(float dt)
 {
     if (isDrag)
@@ -734,8 +886,24 @@ void Game::updateHud()
 
 void Game::updateMenu()
 {
-    sf::Vector2u r =
-        resolutions[currentResolutionIndex];
+    sf::Vector2u r;
+
+    if (settings.fullscreen)
+    {
+        sf::VideoMode desktop =
+            sf::VideoMode::getDesktopMode();
+
+        r.x = desktop.width;
+        r.y = desktop.height;
+    }
+    else
+    {
+        r = resolutions[currentResolutionIndex];
+    }
+
+    // =====================================================
+    // RESOLUTION TEXT
+    // =====================================================
 
     resolutionButton.setString(
         L"Разрешение: " +
@@ -744,21 +912,133 @@ void Game::updateMenu()
         std::to_wstring(r.y)
     );
 
+    // =====================================================
+    // FULLSCREEN TEXT
+    // =====================================================
+
     fullscreenButton.setString(
         settings.fullscreen
         ? L"Режим: Fullscreen"
         : L"Режим: Windowed"
     );
 
-    float centerX =
-        window.getSize().x * 0.5f;
+    updateMenuLayout();
+}
+
+void Game::updatePauseMenu()
+{
+    sf::Vector2u r;
+
+    if (settings.fullscreen)
+    {
+        sf::VideoMode desktop =
+            sf::VideoMode::getDesktopMode();
+
+        r.x = desktop.width;
+        r.y = desktop.height;
+    }
+    else
+    {
+        r = resolutions[currentResolutionIndex];
+    }
+
+    // =====================================================
+    // RESOLUTION TEXT
+    // =====================================================
+
+    pauseResolutionButton.setString(
+        L"Разрешение: " +
+        std::to_wstring(r.x) +
+        L"x" +
+        std::to_wstring(r.y)
+    );
+
+    // =====================================================
+    // FULLSCREEN TEXT
+    // =====================================================
+
+    pauseFullscreenButton.setString(
+        settings.fullscreen
+        ? L"Режим: Fullscreen"
+        : L"Режим: Windowed"
+    );
+
+    updatePauseMenuLayout();
+}
+
+void Game::updateMenuLayout()
+{
+    sf::Vector2u win = window.getSize();
+
+    float centerX = win.x * 0.5f;
+
+    // =====================================================
+    // BACKGROUND
+    // =====================================================
+
+    menuBg.setSize(
+        sf::Vector2f(win)
+    );
+
+    // =====================================================
+    // TITLE
+    // =====================================================
+
+    sf::FloatRect titleBounds =
+        title.getLocalBounds();
+
+    title.setPosition(
+        centerX - titleBounds.width / 2.f,
+        win.y * 0.18f
+    );
+
+    // =====================================================
+    // START BUTTON
+    // =====================================================
+
+    startButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.38f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect startBounds =
+        startButton.getLocalBounds();
+
+    startButton.setPosition(
+        centerX - startBounds.width / 2.f,
+        startButtonRect.top + 10.f
+    );
+
+    // =====================================================
+    // RESOLUTION BUTTON
+    // =====================================================
+
+    resolutionButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.48f,
+        300.f,
+        50.f
+    );
 
     sf::FloatRect rBounds =
         resolutionButton.getLocalBounds();
 
     resolutionButton.setPosition(
         centerX - rBounds.width / 2.f,
-        380.f
+        resolutionButtonRect.top + 10.f
+    );
+
+    // =====================================================
+    // FULLSCREEN BUTTON
+    // =====================================================
+
+    fullscreenButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.58f,
+        300.f,
+        50.f
     );
 
     sf::FloatRect fBounds =
@@ -766,20 +1046,209 @@ void Game::updateMenu()
 
     fullscreenButton.setPosition(
         centerX - fBounds.width / 2.f,
-        460.f
+        fullscreenButtonRect.top + 10.f
+    );
+
+    // =====================================================
+    // EXIT BUTTON
+    // =====================================================
+
+    exitButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.68f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect exitBounds =
+        exitButton.getLocalBounds();
+
+    exitButton.setPosition(
+        centerX - exitBounds.width / 2.f,
+        exitButtonRect.top + 10.f
     );
 }
 
+void Game::updatePauseMenuLayout()
+{
+    sf::Vector2u win = window.getSize();
 
-// ==================================================
-// ===================== UPDATE =====================
-// ==================================================
+    float centerX = win.x * 0.5f;
+
+    // =====================================================
+    // BACKGROUND
+    // =====================================================
+
+    pauseBg.setSize(
+        sf::Vector2f(win)
+    );
+
+    // =====================================================
+    // TITLE
+    // =====================================================
+
+    sf::FloatRect titleBounds =
+        pauseTitle.getLocalBounds();
+
+    pauseTitle.setPosition(
+        centerX - titleBounds.width / 2.f,
+        win.y * 0.18f
+    );
+
+    // =====================================================
+    // CONTINUE BUTTON
+    // =====================================================
+
+    continueButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.38f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect continueBounds =
+        continueButton.getLocalBounds();
+
+    continueButton.setPosition(
+        centerX - continueBounds.width / 2.f,
+        continueButtonRect.top + 10.f
+    );
+
+    // =====================================================
+    // RESOLUTION BUTTON
+    // =====================================================
+
+    pauseResolutionButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.48f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect rBounds =
+        pauseResolutionButton.getLocalBounds();
+
+    pauseResolutionButton.setPosition(
+        centerX - rBounds.width / 2.f,
+        pauseResolutionButtonRect.top + 10.f
+    );
+
+    // =====================================================
+    // FULLSCREEN BUTTON
+    // =====================================================
+
+    pauseFullscreenButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.58f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect fBounds =
+        pauseFullscreenButton.getLocalBounds();
+
+    pauseFullscreenButton.setPosition(
+        centerX - fBounds.width / 2.f,
+        pauseFullscreenButtonRect.top + 10.f
+    );
+
+    // =====================================================
+    // BACK TO MENU BUTTON
+    // =====================================================
+
+    backToMenuButtonRect = sf::FloatRect(
+        centerX - 150.f,
+        win.y * 0.68f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect backBounds =
+        backToMenuButton.getLocalBounds();
+
+    backToMenuButton.setPosition(
+        centerX - backBounds.width / 2.f,
+        backToMenuButtonRect.top + 10.f
+    );
+}
+
+void Game::updateHUDLayout()
+{
+    sf::Vector2u win = window.getSize();
+
+    float windowWidth  = static_cast<float>(win.x);
+    float windowHeight = static_cast<float>(win.y);
+
+    // =====================================================
+    // HUD BACKGROUND
+    // =====================================================
+
+    float hudHeight = windowHeight * 0.14f;
+    float hudY = windowHeight - hudHeight;
+
+    hudBackground.setSize({windowWidth, hudHeight});
+    hudBackground.setPosition(0.f, hudY);
+
+    // =====================================================
+    // CENTER PANEL
+    // =====================================================
+
+    float centerWidth  = windowWidth * 0.35f;
+    float centerHeight = hudHeight * 0.75f;
+
+    float centerX = (windowWidth - centerWidth) / 2.f;
+    float centerY = hudY + (hudHeight - centerHeight) / 2.f;
+
+    centerPanel.setSize({centerWidth, centerHeight});
+    centerPanel.setPosition(centerX, centerY);
+
+    // =====================================================
+    // CENTER TEXT (если есть)
+    // =====================================================
+
+    sf::FloatRect textBounds = centerText.getLocalBounds();
+
+    centerText.setPosition(
+        centerX + (centerWidth - textBounds.width) / 2.f,
+        centerY + (centerHeight - textBounds.height) / 2.f - 5.f
+    );
+
+    // =====================================================
+    // END TURN BUTTON
+    // =====================================================
+
+    float buttonWidth  = windowWidth * 0.12f;
+    float buttonHeight = hudHeight * 0.65f;
+
+    float buttonX = windowWidth - buttonWidth - windowWidth * 0.02f;
+    float buttonY = hudY + (hudHeight - buttonHeight) / 2.f;
+
+    endTurnButton = sf::FloatRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+    endTurnShape.setSize({buttonWidth, buttonHeight});
+    endTurnShape.setPosition(buttonX, buttonY);
+
+    // =====================================================
+    // END TURN TEXT
+    // =====================================================
+
+    sf::FloatRect textRect = endTurnText.getLocalBounds();
+
+    endTurnText.setPosition(
+        buttonX + (buttonWidth - textRect.width) / 2.f,
+        buttonY + (buttonHeight - textRect.height) / 2.f - 5.f
+    );
+}
+
 void Game::update(float dt)
 {
     switch (globalState)
     {
-        case Menu:
+        case Paused:
+            updatePauseMenu();
+            break;
 
+        case Menu:
             updateMenu();
             break;
 
@@ -806,11 +1275,13 @@ void Game::update(float dt)
             // ========================= АНИМАЦИИ??? ====================
             animMgr.update(dt);
             break;
-
-        case Paused: break;
     }
 }
 
+
+// ==================================================
+// ===================== RENDER =====================
+// ==================================================
 
 void Game::renderCities()
 {
@@ -1179,9 +1650,23 @@ void Game::renderMenu()
     window.draw(exitButton);
 }
 
-// ==================================================
-// ===================== RENDER =====================
-// ==================================================
+void Game::renderPauseMenu()
+{
+    window.setView(window.getDefaultView());
+
+    window.draw(pauseBg);
+
+    window.draw(pauseTitle);
+
+    window.draw(continueButton);
+
+    window.draw(pauseResolutionButton);
+
+    window.draw(pauseFullscreenButton);
+
+    window.draw(backToMenuButton);
+}
+
 void Game::render(float dt)
 {
     //====================================================
@@ -1226,6 +1711,36 @@ void Game::render(float dt)
 
         case Menu:
             renderMenu();
+            break;
+
+        case Paused:
+            // ===================== ГОРОДА  =====================
+            renderCities();
+            // ===================== КОМАНДЫ ======================
+            renderCommands();
+            // ===================== АНИМАЦИИ??? ============================
+            animMgr.draw(window);
+
+            //====================================================
+            //====================== UI ==========================
+            //====================================================
+            window.setView(window.getDefaultView());
+
+            // ===================== POPUP =====================
+            renderPopUp();
+            // ================HUD=====================
+            window.draw(hudBackground);
+
+            window.draw(centerPanel);
+            window.draw(centerText);
+
+            window.draw(endTurnShape);
+            window.draw(endTurnText);
+
+            // ======================= FPS ================================
+            renderFps(dt);
+
+            renderPauseMenu();
             break;
     }
 

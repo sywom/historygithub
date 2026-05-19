@@ -15,6 +15,6 @@ public:
 
     static void resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr); // бои на готовых армиях
 
-    static void makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr);
+    static void makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount);
 };
 

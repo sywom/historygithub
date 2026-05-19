@@ -12,14 +12,17 @@
 // конец хода - все итоги сражения. все.
 void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount)
 {
-    if (turnCount > 15)
+    if (turnCount > 5)
     {
         // каждый ход армия наполеона потихоньку сдает
         for (auto &army : armyMgr.armies)
         {
 
-            if (army.owner == 1) army.morale *= 0.97f;
-            if (army.owner == 0) army.morale *= 1.03f;
+            if (army.owner == 1) army.morale *= 0.90f;
+            if (army.owner == 0) army.morale *= 1.05f;
+
+            if (army.morale < 0.4f) army.morale = 0.4f;
+            if (army.morale >1.5f) army.morale = 1.5f;
         }
     }
 
@@ -284,7 +287,7 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         }
 
         // -------- БОЙ --------
-        float lossFactor = 0.2f;
+        float lossFactor = 0.1f;
 
         auto &gA = groups[0];
         auto &gB = groups[1];
@@ -845,7 +848,7 @@ void SimulationSystem::resolveBattles(ArmyManager& armyMgr, CityManager& cityMgr
 5. Взять топ-3
 6. выполнить
 */
-void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr)
+void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount)
 {
     struct AICmd
     {
@@ -1046,7 +1049,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                     dx = (float)(toCityPtr->position.x - fromCityPtr->position.x);
                 }
                 // ограничиваем влияние, чтобы не раздувало score
-                float directionBonus = std::clamp(dx * 0.05f, -50.f, 40.f);
+                float directionBonus = std::clamp(dx * 0.05f, -50.f, 60.f);
                 score += directionBonus;
 
                 // ============ 2. куда идем, на врага или так ===================
@@ -1076,14 +1079,13 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 if (enemyUnits > 0)
                 {
                     int targetUnits = enemyUnits - allyUnits;
-                    sendUnits = targetUnits * 1.2f;
+                    sendUnits = targetUnits * 1.7f;
                     sendUnits = std::clamp(sendUnits, 10, army.soldiers);
                 }
                 else
                 {
                     // экспансия
                     sendUnits = army.soldiers;
-                    score -= 40.f;
 
                     for (int neighborId : from->neighbors) // спишем по 30 очков за экспанисию, если рядом бои
                     {
@@ -1119,8 +1121,15 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 score += powerBonus;
 
             }
+
+            // дополниьельные условия
             if (sendUnits <= 0) continue;
             if (neighbor==30) score-=1000.f;
+
+            // первые ходы - переправа через ковно
+            if (turnCount == 0 && neighbor==4) score+=20000.f;
+            // вильно-дрисса
+            //if (neighbor==19) score += 200.f;
 
             candidates.push_back({
                 army.id,
@@ -1134,21 +1143,6 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         }
     }
 
-    std::cout << "============" << std::endl;
-    int place = 0;
-    for (auto &cmd : candidates)
-    {
-        place++;
-        std::cout << "place " << place << std::endl;
-
-        std::cout << "command" << std::endl;
-        std::cout << "from " << cityMgr.findById(cmd.fromCity)->name << std::endl;
-        std::cout << "to " << cityMgr.findById(cmd.toCity)->name << std::endl;
-        std::cout << "units " << cmd.sendUnits << std::endl;
-        std::cout << "type " << cmd.type << std::endl;
-        std::cout << "points " << cmd.score << std::endl;
-        std::cout << std::endl;
-    }
 
 
     // =====================
@@ -1173,7 +1167,6 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         candidates.push_back(cmd);
     }
 
-
     // =====================
     // SORT
     // =====================
@@ -1182,6 +1175,24 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         {
             return a.score > b.score;
         });
+
+    std::cout << "============" << std::endl;
+    int place = 0;
+    for (auto &cmd : candidates)
+    {
+        place++;
+        std::cout << "place " << place << std::endl;
+
+        std::cout << "command" << std::endl;
+        std::cout << "from " << cityMgr.findById(cmd.fromCity)->name << std::endl;
+        std::cout << "to " << cityMgr.findById(cmd.toCity)->name << std::endl;
+        std::cout << "units " << cmd.sendUnits << std::endl;
+        std::cout << "type " << cmd.type << std::endl;
+        std::cout << "points " << cmd.score << std::endl;
+        std::cout << std::endl;
+    }
+
+
 
 
     // =====================

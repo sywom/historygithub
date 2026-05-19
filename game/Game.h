@@ -85,18 +85,24 @@ private:
     int maxCommands = 3;
 
     void initMenu();
+    void initPauseMenu();
 
     void updateCamera(float dt);
     void hoverCity();
     void updateHud();
     void updateMenu();
+    void updatePauseMenu();
+
+    void updatePauseMenuLayout();
+    void updateMenuLayout();
+    void updateHUDLayout();
 
     void renderCities();
     void renderCommands();
     void renderPopUp();
     void renderFps(float dt);
-
     void renderMenu();
+    void renderPauseMenu();
 
     int playerTotalUnits = 0;
     int enemyTotalUnits = 0;
@@ -113,7 +119,7 @@ private:
     void applyVideoSettings();
     struct VideoSettings
     {
-        sf::Vector2u resolution = {900, 600};
+        sf::Vector2u resolution = {1280, 720};
 
         bool fullscreen = false;
     };
@@ -129,7 +135,7 @@ private:
         {1920, 1080}
     };
 
-    int currentResolutionIndex = 0;
+    int currentResolutionIndex = 1;
 
     // ==================================================
     // MENU UI
@@ -146,7 +152,7 @@ private:
     sf::Text endTurnText;
     sf::Text centerText;
 
-    // ===================== MENU =====================
+    // ===================== MAIN MENU =====================
 
     sf::RectangleShape menuBg;
 
@@ -161,6 +167,22 @@ private:
     sf::FloatRect resolutionButtonRect;
     sf::FloatRect fullscreenButtonRect;
     sf::FloatRect exitButtonRect;
+
+    // ===================== PAUSE MENU =====================
+
+    sf::RectangleShape pauseBg;
+
+    sf::Text pauseTitle;
+
+    sf::Text continueButton;
+    sf::Text pauseResolutionButton;
+    sf::Text pauseFullscreenButton;
+    sf::Text backToMenuButton;
+
+    sf::FloatRect continueButtonRect;
+    sf::FloatRect pauseResolutionButtonRect;
+    sf::FloatRect pauseFullscreenButtonRect;
+    sf::FloatRect backToMenuButtonRect;
 };
 
 
