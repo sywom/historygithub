@@ -43,7 +43,8 @@ private:
     {
         Menu,
         Playing,
-        Paused
+        Paused,
+        GameOver
     };
     GameGlobalState globalState = Menu;
 
@@ -86,6 +87,7 @@ private:
 
     void initMenu();
     void initPauseMenu();
+    void initEndGameUI();
 
     void updateCamera(float dt);
     void hoverCity();
@@ -96,6 +98,7 @@ private:
     void updatePauseMenuLayout();
     void updateMenuLayout();
     void updateHUDLayout();
+    void updateEndGameLayout(bool isWin);
 
     void renderCities();
     void renderCommands();
@@ -103,6 +106,7 @@ private:
     void renderFps(float dt);
     void renderMenu();
     void renderPauseMenu();
+    void renderEndGame();
 
     int playerTotalUnits = 0;
     int enemyTotalUnits = 0;
@@ -183,6 +187,12 @@ private:
     sf::FloatRect pauseResolutionButtonRect;
     sf::FloatRect pauseFullscreenButtonRect;
     sf::FloatRect backToMenuButtonRect;
+
+    // ================ WIN LOSE MENU =========================
+    sf::RectangleShape endGameBg;
+    sf::Text endGameTitle;
+    sf::Text endGameButton;
+    sf::FloatRect endGameButtonRect;
 };
 
 

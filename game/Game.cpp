@@ -177,6 +177,18 @@ void Game::initPauseMenu()
     backToMenuButton.setCharacterSize(24);
 }
 
+void Game::initEndGameUI()
+{
+    endGameBg.setFillColor(sf::Color(0, 0, 0, 200));
+
+    endGameTitle.setFont(font);
+    endGameTitle.setCharacterSize(42);
+
+    endGameButton.setFont(font);
+    endGameButton.setString(L"В меню");
+    endGameButton.setCharacterSize(24);
+}
+
 void Game::applyVideoSettings()
 {
     sf::VideoMode mode;
@@ -298,6 +310,7 @@ void Game::init()
 
     initMenu();
     initPauseMenu();
+    initEndGameUI();
 }
 
 
@@ -319,6 +332,20 @@ void Game::processEvents()
 
         switch (globalState)
         {
+            case GameOver:
+
+                if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
+                {
+                    sf::Vector2f mouse =
+                        window.mapPixelToCoords(mouseScreen, window.getDefaultView());
+
+                    if (endGameButtonRect.contains(mouse))
+                    {
+                        globalState = Menu;
+                    }
+                }
+                break;
+
             case Paused:
 
                 if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
@@ -1172,6 +1199,41 @@ void Game::updatePauseMenuLayout()
     );
 }
 
+void Game::updateEndGameLayout(bool isWin)
+{
+    sf::Vector2u win = window.getSize();
+
+    float cx = win.x * 0.5f;
+
+    endGameBg.setSize(sf::Vector2f(win));
+
+    if (isWin)
+        endGameTitle.setString(L"Победа");
+    else
+        endGameTitle.setString(L"Поражение");
+
+    sf::FloatRect t = endGameTitle.getLocalBounds();
+
+    endGameTitle.setPosition(
+        cx - t.width / 2.f,
+        win.y * 0.3f
+    );
+
+    endGameButtonRect = sf::FloatRect(
+        cx - 150.f,
+        win.y * 0.55f,
+        300.f,
+        50.f
+    );
+
+    sf::FloatRect b = endGameButton.getLocalBounds();
+
+    endGameButton.setPosition(
+        cx - b.width / 2.f,
+        endGameButtonRect.top + 10.f
+    );
+}
+
 void Game::updateHUDLayout()
 {
     sf::Vector2u win = window.getSize();
@@ -1244,6 +1306,12 @@ void Game::update(float dt)
 {
     switch (globalState)
     {
+        case GameOver:
+        {
+            bool playerWon = playerTotalUnits > enemyTotalUnits;
+            updateEndGameLayout(playerWon);
+            break;
+        }
         case Paused:
             updatePauseMenu();
             break;
@@ -1253,6 +1321,16 @@ void Game::update(float dt)
             break;
 
         case Playing:
+            // ==================== выйграли ли.==============================
+            if (turn!=0)
+            {
+                if (enemyTotalUnits < 25000 || playerTotalUnits < 25000)
+                {
+                    globalState = GameOver;
+                }
+            }
+
+
 
             // ===================== ЕСТЬ ЛИ МЫШЬ НАД ГОРОДОМ =====================
             hoverCity();
@@ -1667,6 +1745,15 @@ void Game::renderPauseMenu()
     window.draw(backToMenuButton);
 }
 
+void Game::renderEndGame()
+{
+    window.setView(window.getDefaultView());
+
+    window.draw(endGameBg);
+    window.draw(endGameTitle);
+    window.draw(endGameButton);
+}
+
 void Game::render(float dt)
 {
     //====================================================
@@ -1678,6 +1765,10 @@ void Game::render(float dt)
 
     switch (globalState)
     {
+
+        case GameOver:
+            renderEndGame();
+            break;
 
         case Playing:
             // ===================== ГОРОДА  =====================

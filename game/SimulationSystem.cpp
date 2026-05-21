@@ -12,20 +12,6 @@
 // конец хода - все итоги сражения. все.
 void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr, CityManager& cityMgr, AnimationManager& animMgr, int turnCount)
 {
-    if (turnCount > 5)
-    {
-        // каждый ход армия наполеона потихоньку сдает
-        for (auto &army : armyMgr.armies)
-        {
-
-            if (army.owner == 1) army.morale *= 0.90f;
-            if (army.owner == 0) army.morale *= 1.05f;
-
-            if (army.morale < 0.4f) army.morale = 0.4f;
-            if (army.morale >1.5f) army.morale = 1.5f;
-        }
-    }
-
     // ============================================
     // СПИСАНИЕ ЮНИТОВ С ТОЧКИ И АКТИВАЦИЯ СОЗДАННЫХ КОМАНД
     // ============================================
@@ -44,6 +30,35 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
             //animMgr.spawnNumber(city->position, cmd.units, 25.0);
         }
     }
+
+    // =======================================================
+    // ======== ОСЛАБЛЕНИЕ НАПОЛЕОНА ПО МЕРЕ ПРОДВИЖЕНИЯ======
+    // =======================================================
+    if (turnCount > 5)
+    {
+        // каждый ход армия наполеона потихоньку сдает
+        for (auto &army : armyMgr.armies)
+        {
+
+            if (army.owner == 1) army.morale *= 0.93f;
+            if (army.owner == 0) army.morale *= 1.07f;
+
+            if (army.morale < 0.4f) army.morale = 0.4f;
+            if (army.morale >1.5f) army.morale = 1.5f;
+        }
+    }
+    if (turnCount > 10)
+    {
+        for (auto &cmd : commandMgr.commands)
+        {
+            if (cmd.owner==1)
+            {
+                int ciegeLoss = cmd.units * turnCount * 0.003f;
+                cmd.units -= ciegeLoss;
+            }
+        }
+    }
+
     // =====================
     // ДВИЖЕНИЕ ХОДОВ
     // =====================
@@ -57,16 +72,11 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
    // =====================
     // ФРОНТЫ
     // =====================
-
     struct Front
     {
         int a;
         int b;
-
         std::vector<Command*> cmds;
-
-        bool activeBattle = false;
-        float battleDot = 0.5f;
     };
 
     std::vector<Front> fronts;
@@ -82,30 +92,56 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
             }
         }
 
-        fronts.push_back({
-            a,
-            b
-        });
-
+        fronts.push_back({a, b, {}});
         return &fronts.back();
     };
 
-    // =====================
-    // СОЗДАНИЕ ФРОНТОВ
-    // =====================
+    // =====================================
+    // собираем фронты
+    // =====================================
 
     for (auto &cmd : commandMgr.commands)
     {
-        if (cmd.units <= 0)
-            continue;
-
         if (cmd.state == CommandState::InRetreat)
             continue;
 
-        Front* f = getFront(cmd.fromCity, cmd.toCity);
+        if (cmd.fromCity == cmd.toCity)
+            continue;
 
+        Front* f = getFront(cmd.fromCity, cmd.toCity);
         f->cmds.push_back(&cmd);
     }
+
+    // =====================================
+    // удаляем невзаимные фронты
+    // =====================================
+
+    fronts.erase(
+        std::remove_if(fronts.begin(), fronts.end(),
+        [](const Front& f)
+        {
+            bool hasAB = false;
+            bool hasBA = false;
+
+            for (auto* cmd : f.cmds)
+            {
+                if (cmd->fromCity == f.a &&
+                    cmd->toCity == f.b)
+                {
+                    hasAB = true;
+                }
+
+                if (cmd->fromCity == f.b &&
+                    cmd->toCity == f.a)
+                {
+                    hasBA = true;
+                }
+            }
+
+            return !(hasAB && hasBA);
+        }),
+        fronts.end()
+    );
 
     // =====================
     // ОБНАРУЖЕНИЕ СТОЛКНОВЕНИЙ
@@ -858,12 +894,16 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         int sendUnits;
         float score;
 
-        enum Type { AttackCity, ReinforceFront } type;
+        enum Type { AttackCity, ReinforceFront, AttackReact } type;
 
         float morale;
     };
 
     std::vector<AICmd> candidates;
+
+    // =====================
+    // REINFORCE FRONT (1 команда на фронт)
+    // =====================
 
     // =====================
     // ФРОНТЫ                   // этот же код используется в endturn, не хочу выносить, потому что хочу локально поработать с анализом и отдельно с изменениями
@@ -881,25 +921,64 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
     {
         for (auto &f : fronts)
         {
-            if ((f.a == a && f.b == b) || (f.a == b && f.b == a))
+            if ((f.a == a && f.b == b) ||
+                (f.a == b && f.b == a))
+            {
                 return &f;
+            }
         }
 
         fronts.push_back({a, b, {}});
         return &fronts.back();
     };
 
+    // =====================================
+    // собираем фронты
+    // =====================================
+
     for (auto &cmd : commandMgr.commands)
     {
-        if (cmd.state == CommandState::InRetreat) continue;
+        if (cmd.state == CommandState::InRetreat)
+            continue;
+
+        if (cmd.fromCity == cmd.toCity)
+            continue;
 
         Front* f = getFront(cmd.fromCity, cmd.toCity);
         f->cmds.push_back(&cmd);
     }
 
-    // =====================
-    // REINFORCE FRONT (1 команда на фронт)
-    // =====================
+    // =====================================
+    // удаляем невзаимные фронты
+    // =====================================
+
+    fronts.erase(
+        std::remove_if(fronts.begin(), fronts.end(),
+        [](const Front& f)
+        {
+            bool hasAB = false;
+            bool hasBA = false;
+
+            for (auto* cmd : f.cmds)
+            {
+                if (cmd->fromCity == f.a &&
+                    cmd->toCity == f.b)
+                {
+                    hasAB = true;
+                }
+
+                if (cmd->fromCity == f.b &&
+                    cmd->toCity == f.a)
+                {
+                    hasBA = true;
+                }
+            }
+
+            return !(hasAB && hasBA);
+        }),
+        fronts.end()
+    );
+
     for (auto &f : fronts)
     {
         // считаем силы
@@ -975,8 +1054,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
             }
         }
 
-        if (found)
-            candidates.push_back(bestCmd);
+        if (found) candidates.push_back(bestCmd);
     }
 
     // =====================
@@ -1085,7 +1163,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 else
                 {
                     // экспансия
-                    sendUnits = army.soldiers;
+                    sendUnits = army.soldiers * 0.96f;
 
                     for (int neighborId : from->neighbors) // спишем по 30 очков за экспанисию, если рядом бои
                     {
@@ -1130,6 +1208,9 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
             if (turnCount == 0 && neighbor==4) score+=20000.f;
             // вильно-дрисса
             //if (neighbor==19) score += 200.f;
+
+            // ковно-гродно тупейшая команда
+            if (from->id==4 && neighbor==8) score-=10000000.f;
 
             candidates.push_back({
                 army.id,
@@ -1176,6 +1257,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
             return a.score > b.score;
         });
 
+
     std::cout << "============" << std::endl;
     int place = 0;
     for (auto &cmd : candidates)
@@ -1191,6 +1273,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
         std::cout << "points " << cmd.score << std::endl;
         std::cout << std::endl;
     }
+
 
 
 
