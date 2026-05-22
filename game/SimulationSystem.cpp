@@ -40,8 +40,8 @@ void SimulationSystem::endTurn(CommandManager& commandMgr, ArmyManager& armyMgr,
         for (auto &army : armyMgr.armies)
         {
 
-            if (army.owner == 1) army.morale *= 0.93f;
-            if (army.owner == 0) army.morale *= 1.07f;
+            if (army.owner == 1) army.morale *= 0.94f;
+            if (army.owner == 0) army.morale *= 1.06f;
 
             if (army.morale < 0.4f) army.morale = 0.4f;
             if (army.morale >1.5f) army.morale = 1.5f;
@@ -1103,7 +1103,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 // сюда тоже dir бонус, что отступать лучше назад
                 // =========================== риски =========================
                 if (allyUnits < enemyUnits * 0.4f) {score += 60.f; sendUnits=allyUnits*0.8f;}; // сильно проигрываем - лучше отступить
-                if (allyUnits > enemyUnits) {score -= 400.f; sendUnits=0;}; // у тебя город в осаде и ты выйгрываешь, куда собсветнно собрался
+                //if (allyUnits > enemyUnits) {score -= 400.f; sendUnits=0;}; // у тебя город в осаде и ты выйгрываешь, куда собсветнно собрался
 
                 // добавляем приоритет, если отступаем на свои земли
                 bool isEnemyCity = (target->owner != army.owner);
@@ -1158,22 +1158,23 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 {
                     int targetUnits = enemyUnits - allyUnits;
                     sendUnits = targetUnits * 1.7f;
-                    sendUnits = std::clamp(sendUnits, 10, army.soldiers);
+                    sendUnits = std::clamp(sendUnits, 0, army.soldiers);
                 }
                 else
                 {
                     // экспансия
                     sendUnits = army.soldiers * 0.96f;
+                    score += 40.f;
 
-                    for (int neighborId : from->neighbors) // спишем по 30 очков за экспанисию, если рядом бои
-                    {
-                        City *c = cityMgr.findById(neighborId);
-                        if (c->owner == -1) score -= 30.f;
-                    }
+                    //for (int neighborId : from->neighbors) // спишем по 30 очков за экспанисию, если рядом бои
+                    //{
+                    //    City *c = cityMgr.findById(neighborId);
+                    //    if (c->owner == -1) score -= 30.f;
+                    //}
                 }
 
                 // риски при поддержке города
-                if (allyUnits * 1.5f < enemyUnits) score += 100.f; // города нужно удерживать
+                if (allyUnits * 1.5f < enemyUnits) score += 30.f; // города нужно удерживать
 
 
                 // риски при нападении на город
@@ -1181,7 +1182,7 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
                 int ourTotal = sendUnits + allyUnits;
 
                 // потенциально проигрываем
-                if (ourTotal < enemyUnits) score += 25.f;
+                if (ourTotal < enemyUnits) score += 50.f;
 
 
                 // сильно проигрываем - игра не стоит свеч пупупу увы и ах
@@ -1190,11 +1191,11 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
 
                 // потенциальная победа
                 if (ourTotal > enemyUnits * 1.1f)
-                    score += 35.f;
+                    score += 70.f;
 
                 // ======================= 4. лучше двигать большие армии ===================
                 float armyPower = (float)army.soldiers;
-                float powerBonus = std::log(armyPower + 1.f) * 15.f;
+                float powerBonus = std::log(armyPower + 1.f) * 25.f;
 
                 score += powerBonus;
 
@@ -1211,6 +1212,16 @@ void SimulationSystem::makeAITurns(CommandManager& commandMgr, ArmyManager& army
 
             // ковно-гродно тупейшая команда
             if (from->id==4 && neighbor==8) score-=10000000.f;
+            if (from->id==8 && neighbor==4) score-=10000000.f;
+
+            // Львов люблин
+            if (from->id==49 && neighbor==5) {score+= 150.f; sendUnits=army.soldiers;};
+            if (from->id==5 && neighbor==49) score = 0;
+
+            // Луцк, Пинск отмена
+            if (neighbor==17) score = 0;
+            if (neighbor==18) score = 0;
+
 
             candidates.push_back({
                 army.id,

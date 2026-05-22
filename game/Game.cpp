@@ -1426,6 +1426,7 @@ void Game::renderCities()
 
             window.draw(text);
 
+            /*
             sf::Text morale;
             morale.setFont(font);
             morale.setCharacterSize(20);
@@ -1435,6 +1436,7 @@ void Game::renderCities()
             morale.setPosition(c.position.x + 25, c.position.y - 25);
 
             window.draw(morale);
+            */
         }
 
         // слева — враг 1
@@ -1450,7 +1452,7 @@ void Game::renderCities()
 
             window.draw(text);
 
-
+            /*
             sf::Text morale;
             morale.setFont(font);
             morale.setCharacterSize(20);
@@ -1460,6 +1462,7 @@ void Game::renderCities()
             morale.setPosition(c.position.x - 100, c.position.y - 25);
 
             window.draw(morale);
+            */
         }
 
         //================= подсвтетка связей между городами ===============
@@ -1653,7 +1656,7 @@ void Game::renderCommands()
         // ========== текст прогресса ходов на команде
         int progress = cmd.totalTurns - cmd.remainingTurns;
 
-        std::string label = std::to_string(cmd.units) + " (" + std::to_string(progress) + "/" + std::to_string(cmd.totalTurns) + ") m: " + std::to_string(cmd.morale);
+        std::string label = std::to_string(cmd.units) + " (" + std::to_string(progress) + "/" + std::to_string(cmd.totalTurns) + ")";
 
         unitsText.setString(label);
         unitsText.setPosition(textPos + sf::Vector2f(5.f, -5.f));
